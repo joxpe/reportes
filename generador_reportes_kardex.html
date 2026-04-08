@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Generador de Reportes Kardex LIMSA</title>
+  <style>
+    :root{
+      --bg:#f6f8fb; --card:#ffffff; --text:#1f2937; --muted:#6b7280;
+      --primary:#2563eb; --primary2:#1d4ed8; --border:#dbe3ef;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
+    .wrap{max-width:1100px;margin:24px auto;padding:0 16px 32px}
+    .hero{background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;padding:24px;border-radius:18px;margin-bottom:18px}
+    .hero h1{margin:0 0 8px}
+    .hero p{margin:0;color:#dbeafe}
+    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}
+    .card{background:#fff;border:1px solid var(--border);border-radius:18px;padding:18px;box-shadow:0 6px 16px rgba(15,23,42,.05)}
+    h2{margin:0 0 12px}
+    .muted{color:var(--muted)}
+    .drop{border:2px dashed #93c5fd;border-radius:16px;padding:24px;text-align:center;background:#eff6ff}
+    .drop.drag{background:#dbeafe}
+    .drop input{display:none}
+    .drop label{display:inline-block;padding:12px 18px;background:var(--primary);color:#fff;border-radius:12px;cursor:pointer;font-weight:700}
+    .filebox{margin-top:14px;padding:12px 14px;border-radius:12px;background:#f8fafc;border:1px solid var(--border);font-size:14px}
+    .actions{display:grid;gap:12px;margin-top:12px}
+    .btn{width:100%;border:none;border-radius:14px;padding:14px 16px;text-align:left;cursor:pointer;background:#eef2ff;color:#1e3a8a;font-weight:700}
+    .btn:hover{background:#dbeafe}
+    .btn small{display:block;color:#475569;font-weight:400;margin-top:4px;line-height:1.35}
+    .btn.primary{background:var(--primary);color:#fff}
+    .btn.primary:hover{background:var(--primary2)}
+    .status{margin-top:12px;min-height:24px;font-size:14px}
+    .ok{color:#16a34a}.err{color:#dc2626}
+    .list{margin:0;padding-left:18px;line-height:1.6}
+    .pill{display:inline-block;padding:4px 10px;border-radius:999px;background:#e0f2fe;color:#075985;font-size:12px;font-weight:700;margin-right:6px;margin-bottom:6px}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    .check{display:flex;gap:8px;align-items:center;font-size:14px;color:#334155;margin-top:10px}
+    @media (max-width: 900px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <h1>Generador de Reportes Kardex LIMSA</h1>
+      <p>Sube tu archivo Excel y genera los 3 reportes que normalmente pides en el chat.</p>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>1) Cargar archivo</h2>
+        <div id="drop" class="drop">
+          <p><strong>Arrastra aquí tu archivo .xlsx / .xlsm</strong></p>
+          <p class="muted">o</p>
+          <label for="fileInput">Seleccionar archivo</label>
+          <input id="fileInput" type="file" accept=".xlsx,.xlsm,.xls,.xlsb" />
+        </div>
+        <div id="fileInfo" class="filebox muted">Aún no has cargado ningún archivo.</div>
+
+        <div class="check">
+          <input id="lowerBodega" type="checkbox" checked />
+          <label for="lowerBodega">Mostrar bodegas en minúsculas</label>
+        </div>
+
+        <div class="actions">
+          <button id="btn2949" class="btn primary" disabled>
+            Generar reporte 29 y 49
+            <small>Tipo 29 en una pestaña, tipo 49 en otra, con observaciones y formato estándar.</small>
+          </button>
+
+          <button id="btn272850" class="btn" disabled>
+            Generar reporte 27, 28 y 50
+            <small>Tipos 27 y 28 juntos, tipo 50 aparte, más resumen por bodega en 2 bloques.</small>
+          </button>
+
+          <button id="btn0460" class="btn" disabled>
+            Generar reporte 04 al 60
+            <small>Una pestaña por tipo y una pestaña de resumen por cada tipo.</small>
+          </button>
+
+          <button id="btnPrepararOriginal" class="btn" disabled>
+            Preparar Kardex original SIGA
+            <small>Convierte el archivo original al formato base limpio con columnas codigo, descripcion, Entradas $ y Salidas $.</small>
+          </button>
+
+          <div style="display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;">
+            <button id="btnTipoResumen" class="btn" disabled style="margin:0;">
+              Generar reporte por rango, más resumen por bodega
+              <small>Escribe un rango, por ejemplo 45 a 45 o 36 a 45. Genera una pestaña detalle y una de resumen por cada tipo dentro del rango.</small>
+            </button>
+            <input id="inputTipoDesde" type="number" min="0" max="999" placeholder="36" disabled
+              style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
+            <input id="inputTipoHasta" type="number" min="0" max="999" placeholder="45" disabled
+              style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
+          </div>
+        </div>
+
+        <div id="status" class="status"></div>
+      </div>
+
+      <div class="card">
+        <h2>2) Qué hace el programa</h2>
+        <div class="row">
+          <span class="pill">Formato estándar</span>
+          <span class="pill">Observaciones</span>
+          <span class="pill">Totales</span>
+          <span class="pill">Total bono</span>
+          <span class="pill">Resumen por bodega</span>
+        </div>
+        <ul class="list">
+          <li>Detecta columnas como <strong>tipo, bodega, código/codigos, descripción, folio, fecha, entradas, salidas, entradas $, salidas $, observaciones</strong>.</li>
+          <li>Si subes el <strong>Kardex original de SIGA</strong>, también puede prepararlo automáticamente al formato base limpio.</li>
+          <li>Agrupa por bodega y ordena los movimientos de mayor a menor por <strong>salida $</strong>.</li>
+          <li>Resalta en <strong>rojo</strong> los montos altos y en <strong>azul</strong> los menores a 85.</li>
+          <li>Calcula <strong>TOTAL BONO</strong> restando las salidas menores a 85.</li>
+          <li>Genera el Excel listo para descargar.</li>
+          <li>Ahora también permite generar un <strong>tipo individual</strong> (por ejemplo 45) con su <strong>resumen por bodega</strong>.</li>
+        </ul>
+
+        <h2 style="margin-top:18px">3) Notas</h2>
+        <ul class="list muted">
+          <li>Las fechas se conservan como texto para respetar el formato original del archivo.</li>
+          <li>El archivo de salida se guarda como <strong>.xlsx</strong>.</li>
+          <li>Si un tipo no tiene datos, aún se genera la hoja con totales en cero.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+
+  <script>
+    let sourceRows = [];
+    let normalizedRows = [];
+    let sourceName = "";
+    let sourceMonthLabel = "";
+    let sourceMode = "";
+
+    const drop = document.getElementById("drop");
+    const fileInput = document.getElementById("fileInput");
+    const fileInfo = document.getElementById("fileInfo");
+    const statusEl = document.getElementById("status");
+    const btn2949 = document.getElementById("btn2949");
+    const btn272850 = document.getElementById("btn272850");
+    const btn0460 = document.getElementById("btn0460");
+    const btnPrepararOriginal = document.getElementById("btnPrepararOriginal");
+    const btnTipoResumen = document.getElementById("btnTipoResumen");
+    const inputTipoDesde = document.getElementById("inputTipoDesde");
+    const inputTipoHasta = document.getElementById("inputTipoHasta");
+    const lowerBodega = document.getElementById("lowerBodega");
+
+    function setStatus(msg, kind=""){
+      statusEl.className = "status" + (kind ? " " + kind : "");
+      statusEl.textContent = msg;
+    }
+
+    function norm(v){ return String(v ?? "").trim().toLowerCase(); }
+    function compactText(v){ return String(v ?? "").replace(/\u00a0/g, " ").replace(/\s+/g, "").trim(); }
+    function textValue(v){ return String(v ?? "").replace(/\u00a0/g, " "); }
+
+    function findKey(keys, possible, containsAll){
+      for (const p of (possible || [])) if (keys.includes(p)) return p;
+      if (containsAll){
+        for (const k of keys){
+          if (containsAll.every(token => k.includes(token))) return k;
+        }
+      }
+      return null;
+    }
+
+    function parseFileNameMonth(name){
+      const n = name.toLowerCase();
+      if (n.includes("enero")) return "Ene";
+      if (n.includes("febrero")) return "Feb";
+      if (n.includes("marzo")) return "Mar";
+      if (n.includes("abril")) return "Abr";
+      if (n.includes("mayo")) return "May";
+      if (n.includes("junio")) return "Jun";
+      if (n.includes("julio")) return "Jul";
+      if (n.includes("agosto")) return "Ago";
+      if (n.includes("septiembre")) return "Sep";
+      if (n.includes("octubre")) return "Oct";
+      if (n.includes("noviembre")) return "Nov";
+      if (n.includes("diciembre")) return "Dic";
+      return "Reporte";
+    }
+
+    function toNum(v){
+      if (v === null || v === undefined || v === "") return null;
+      if (typeof v === "number") return Number.isFinite(v) ? v : null;
+      const cleaned = String(v).replace(/\u00a0/g, "").replace(/,/g,"").replace(/\$/g,"").trim();
+      if (cleaned === "") return null;
+      const num = Number(cleaned);
+      return Number.isFinite(num) ? num : null;
+    }
+
+    function isOriginalKardexAoA(aoa){
+      const title = String(aoa?.[0]?.[0] ?? "");
+      const header = (aoa?.[1] || []).map(norm);
+      return title.toLowerCase().includes("consulta por articulo con movimientos") &&
+             header.includes("envia") &&
+             header.includes("movimiento") &&
+             header.includes("entradas") &&
+             header.includes("salidas");
+    }
+
+    function normalizeOriginalKardex(aoa){
+      const rows = [];
+      let currentCode = "";
+      let currentDesc = "";
+
+      for (let i = 2; i < aoa.length; i++){
+        const row = aoa[i] || [];
+        const firstCell = textValue(row[0] ?? "").trim();
+        const movement = textValue(row[5] ?? "").trim();
+
+        if (firstCell && firstCell.toUpperCase() !== "TOTALES"){
+          currentCode = firstCell;
+          currentDesc = textValue(row[1] ?? "").trim();
+        }
+
+        if (movement !== "Entrada" && movement !== "Salida") continue;
+
+        const entradas = toNum(row[10]);
+        const salidas = toNum(row[11]);
+        const costo = toNum(row[13]);
+        const entradasMonto = entradas !== null && costo !== null ? entradas * costo : 0;
+        const salidasMonto = salidas !== null && costo !== null ? salidas * costo : 0;
+
+        rows.push({
+          Envia: row[0] ?? "",
+          codigo: currentCode,
+          Folio: row[1] ?? "",
+          descripcion: currentDesc,
+          Factura: row[2] ?? "",
+          Bodega: compactText(row[3] ?? ""),
+          Fecha: row[4] ?? "",
+          Movimiento: movement,
+          Modulo: row[6] ?? "",
+          Tipo: compactText(row[7] ?? ""),
+          "Cia.": row[8] ?? "",
+          "Bod.": row[9] ?? "",
+          Entradas: entradas,
+          Salidas: salidas,
+          ExistenciaCalculada: toNum(row[12]) ?? row[12] ?? "",
+          Costo: costo,
+          Precio: toNum(row[14]) ?? row[14] ?? "",
+          "Entradas $": entradasMonto,
+          "Salidas $": salidasMonto,
+          Actualizada: row[15] ?? "",
+          Observaciones: row[16] ?? "",
+          Usuario: row[17] ?? "",
+          "Fecha Captura": row[18] ?? "",
+          Referencia: row[19] ?? "",
+          "Clien/Prov": row[20] ?? "",
+          OT: row[21] ?? "",
+          Equipo: row[22] ?? ""
+        });
+      }
+      return rows;
+    }
+
+    function parseNormalizedTable(raw){
+      if (!raw.length) throw new Error("El archivo no contiene filas legibles.");
+
+      const first = raw[0];
+      const keyMap = {};
+      Object.keys(first).forEach(k => keyMap[norm(k)] = k);
+      const keys = Object.keys(keyMap);
+
+      const colTipo = findKey(keys, ["tipo"]);
+      const colBodega = findKey(keys, ["bodega"]);
+      const colSalidas = findKey(keys, ["salidas"], ["salida"]);
+      const colEntradas = findKey(keys, ["entradas"], ["entrada"]);
+      const colCodigo = findKey(keys, ["codigos","codigo","código","cod"]);
+      const colDesc = findKey(keys, ["descripcion","descripción"]);
+      const colFolio = findKey(keys, ["folio"]);
+      const colFecha = findKey(keys, ["fecha"]);
+      const colSalidasMonto = findKey(keys, ["salidas $","salida $"], ["salida","$"]);
+      const colEntradasMonto = findKey(keys, ["entradas $","entrada $"], ["entrada","$"]);
+      const colObs = findKey(keys, ["observaciones","obs"]);
+
+      if (!colTipo || !colBodega) throw new Error("No pude identificar las columnas base (tipo y bodega).");
+
+      normalizedRows = raw.map(r => ({
+        Envia: r[keyMap["envia"]] ?? "",
+        codigo: colCodigo ? r[keyMap[colCodigo]] : "",
+        Folio: colFolio ? r[keyMap[colFolio]] : "",
+        descripcion: colDesc ? r[keyMap[colDesc]] : "",
+        Factura: keyMap["factura"] ? r[keyMap["factura"]] : "",
+        Bodega: String(r[keyMap[colBodega]] ?? "").trim(),
+        Fecha: colFecha ? String(r[keyMap[colFecha]] ?? "") : "",
+        Movimiento: keyMap["movimiento"] ? r[keyMap["movimiento"]] : "",
+        Modulo: keyMap["modulo"] ? r[keyMap["modulo"]] : "",
+        Tipo: r[keyMap[colTipo]] ?? "",
+        "Cia.": keyMap["cia."] ? r[keyMap["cia."]] : (keyMap["cia"] ? r[keyMap["cia"]] : ""),
+        "Bod.": keyMap["bod."] ? r[keyMap["bod."]] : (keyMap["bod"] ? r[keyMap["bod"]] : ""),
+        Entradas: toNum(colEntradas ? r[keyMap[colEntradas]] : ""),
+        Salidas: toNum(colSalidas ? r[keyMap[colSalidas]] : ""),
+        ExistenciaCalculada: keyMap["existenciacalculada"] ? (toNum(r[keyMap["existenciacalculada"]]) ?? r[keyMap["existenciacalculada"]]) : "",
+        Costo: keyMap["costo"] ? (toNum(r[keyMap["costo"]]) ?? r[keyMap["costo"]]) : "",
+        Precio: keyMap["precio"] ? (toNum(r[keyMap["precio"]]) ?? r[keyMap["precio"]]) : "",
+        "Entradas $": toNum(colEntradasMonto ? r[keyMap[colEntradasMonto]] : ""),
+        "Salidas $": toNum(colSalidasMonto ? r[keyMap[colSalidasMonto]] : ""),
+        Actualizada: keyMap["actualizada"] ? r[keyMap["actualizada"]] : "",
+        Observaciones: colObs ? r[keyMap[colObs]] : "",
+        Usuario: keyMap["usuario"] ? r[keyMap["usuario"]] : "",
+        "Fecha Captura": keyMap["fecha captura"] ? r[keyMap["fecha captura"]] : "",
+        Referencia: keyMap["referencia"] ? r[keyMap["referencia"]] : "",
+        "Clien/Prov": keyMap["clien/prov"] ? r[keyMap["clien/prov"]] : "",
+        OT: keyMap["ot"] ? r[keyMap["ot"]] : "",
+        Equipo: keyMap["equipo"] ? r[keyMap["equipo"]] : ""
+      }));
+
+      sourceRows = normalizedRows.map(r => {
+        const tipoText = String(r.Tipo ?? "");
+        const tipoNumMatch = tipoText.match(/^(\d+)/);
+        return {
+          Tipo_Num: tipoNumMatch ? Number(tipoNumMatch[1]) : null,
+          Bodega: lowerBodega.checked ? String(r.Bodega ?? "").trim().toLowerCase() : String(r.Bodega ?? "").trim(),
+          Salidas: toNum(r.Salidas),
+          Entradas: toNum(r.Entradas),
+          CODIGO: r.codigo ?? "",
+          DESCRIPCION: r.descripcion ?? "",
+          Folio: r.Folio ?? "",
+          Fecha_Texto: String(r.Fecha ?? ""),
+          "Salidas $": toNum(r["Salidas $"]),
+          "Entradas $": toNum(r["Entradas $"]),
+          Observaciones: r.Observaciones ?? ""
+        };
+      });
+    }
+
+    async function loadFile(file){
+      setStatus("Leyendo archivo...");
+      sourceName = file.name;
+      sourceMonthLabel = parseFileNameMonth(file.name);
+
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, {type:"array"});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:"", raw:true});
+
+      if (!aoa.length) throw new Error("El archivo no contiene filas legibles.");
+
+      if (isOriginalKardexAoA(aoa)){
+        sourceMode = "original";
+        normalizedRows = normalizeOriginalKardex(aoa);
+        parseNormalizedTable(normalizedRows.map(r => ({...r})));
+        btnPrepararOriginal.disabled = false;
+        fileInfo.innerHTML = `<strong>Archivo cargado:</strong> ${file.name}<br><span class="muted">Modo detectado: Kardex original SIGA</span><br><span class="muted">Movimientos válidos detectados: ${normalizedRows.length}</span>`;
+        setStatus("Archivo original detectado. Ya puedes prepararlo o generar reportes directamente.", "ok");
+      } else {
+        sourceMode = "normalizado";
+        const raw = XLSX.utils.sheet_to_json(ws, {defval:""});
+        parseNormalizedTable(raw);
+        btnPrepararOriginal.disabled = true;
+        fileInfo.innerHTML = `<strong>Archivo cargado:</strong> ${file.name}<br><span class="muted">Modo detectado: archivo listo para reportes</span><br><span class="muted">Filas detectadas: ${sourceRows.length}</span>`;
+        setStatus("Archivo listo. Ya puedes generar reportes.", "ok");
+      }
+
+      btn2949.disabled = false;
+      btn272850.disabled = false;
+      btn0460.disabled = false;
+      btnTipoResumen.disabled = false;
+      inputTipoDesde.disabled = false;
+      inputTipoHasta.disabled = false;
+    }
+    drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("drag"); });
+    drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
+    drop.addEventListener("drop", async e => {
+      e.preventDefault(); drop.classList.remove("drag");
+      const file = e.dataTransfer.files[0];
+      if (file) { try { await loadFile(file); } catch(err){ setStatus(err.message, "err"); } }
+    });
+    fileInput.addEventListener("change", async e => {
+      const file = e.target.files[0];
+      if (file) { try { await loadFile(file); } catch(err){ setStatus(err.message, "err"); } }
+    });
+
+    function cloneRows(rows){ return rows.map(r => ({...r})); }
+    function round2(v){ if (v === null || v === undefined || v === "") return null; return Math.round(Number(v)*100)/100; }
+    function setColumnWidths(ws, widths){ widths.forEach((w,i)=>ws.getColumn(i+1).width = w); }
+
+    function addPreparedKardexSheet(wb, rows){
+      const ws = wb.addWorksheet("Kardex_Preparado");
+      const headers = ["codigo","Folio","descripcion","Factura","Bodega","Fecha","Movimiento","Modulo","Tipo","Cia.","Bod.","Entradas","Salidas","ExistenciaCalculada","Costo","Precio","Entradas $","Salidas $","Actualizada","Observaciones","Usuario","Fecha Captura","Referencia","Clien/Prov","OT","Equipo"];
+      ws.addRow(headers);
+      ws.getRow(1).font = {bold:true};
+      ws.autoFilter = {from: "A1", to: "Z1"};
+
+      rows.forEach((r, idx) => {
+        const row = ws.addRow([
+          r.codigo ?? "",
+          r.Folio ?? "",
+          r.descripcion ?? "",
+          r.Factura ?? "",
+          r.Bodega ?? "",
+          r.Fecha ?? "",
+          r.Movimiento ?? "",
+          r.Modulo ?? "",
+          r.Tipo ?? "",
+          r["Cia."] ?? "",
+          r["Bod."] ?? "",
+          r.Entradas ?? null,
+          r.Salidas ?? null,
+          r.ExistenciaCalculada ?? "",
+          r.Costo ?? null,
+          r.Precio ?? null,
+          null,
+          null,
+          r.Actualizada ?? "",
+          r.Observaciones ?? "",
+          r.Usuario ?? "",
+          r["Fecha Captura"] ?? "",
+          r.Referencia ?? "",
+          r["Clien/Prov"] ?? "",
+          r.OT ?? "",
+          r.Equipo ?? ""
+        ]);
+        const excelRow = idx + 2;
+        row.getCell(17).value = {formula:`L${excelRow}*P${excelRow}`, result: round2(r["Entradas $"] || 0)};
+        row.getCell(18).value = {formula:`M${excelRow}*P${excelRow}`, result: round2(r["Salidas $"] || 0)};
+      });
+
+      [12,13,15,16,17,18].forEach(col => {
+        ws.getColumn(col).numFmt = '#,##0.00';
+      });
+      setColumnWidths(ws,[18,16,34,16,14,12,12,18,26,8,8,12,12,16,12,12,14,14,14,42,18,22,16,16,10,12]);
+    }
+
+    function addDetailSheet(wb, title, rows){
+      const ws = wb.addWorksheet(title);
+      ws.addRow(["bodega","salidas","entradas","codigo","descripcion","folio","fecha","salida $","entrada $","observaciones"]);
+      ws.getRow(1).font = {bold:true};
+
+      if (!rows.length){
+        ws.addRow(["TOTAL GENERAL",0,0,"","","","TOTAL",0,0,""]);
+        ws.addRow(["","","","","","","TOTAL BONO",0,"",""]);
+        ws.getRow(ws.rowCount).font = {bold:true};
+        ws.getRow(ws.rowCount-1).font = {bold:true};
+        setColumnWidths(ws,[14,10,10,18,34,16,12,14,14,42]);
+        return;
+      }
+
+      const temp = cloneRows(rows).map(r => ({...r, totalTmp:(r["Salidas $"]||0)+(r["Entradas $"]||0)}));
+      const bodegaTotals = {};
+      temp.forEach(r => { bodegaTotals[r.Bodega] = (bodegaTotals[r.Bodega] || 0) + (r.totalTmp || 0); });
+      const bodegas = Object.entries(bodegaTotals).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+
+      const vals = rows.map(r => r["Salidas $"]).filter(v => typeof v === "number" && !Number.isNaN(v)).sort((a,b)=>a-b);
+      const threshold = vals.length ? vals[Math.floor(0.9 * (vals.length - 1))] : null;
+
+      bodegas.forEach(bodega => {
+        const grupo = cloneRows(rows).filter(r => r.Bodega === bodega).sort((a,b)=>(b["Salidas $"] ?? -Infinity) - (a["Salidas $"] ?? -Infinity));
+        grupo.forEach(r => {
+          const row = ws.addRow([r.Bodega, round2(r.Salidas), round2(r.Entradas), r.CODIGO, r.DESCRIPCION, r.Folio, r.Fecha_Texto, round2(r["Salidas $"]), round2(r["Entradas $"]), r.Observaciones]);
+          row.eachCell({ includeEmpty: true }, cell => {
+            cell.border = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+          });
+          const v = r["Salidas $"];
+          if (typeof v === "number"){
+            const c = row.getCell(8);
+            if (v < 85) c.fill = {type:"pattern", pattern:"solid", fgColor:{argb:"99CCFF"}};
+            else if (threshold !== null && v >= threshold) c.fill = {type:"pattern", pattern:"solid", fgColor:{argb:"FF9999"}};
+          }
+        });
+
+        const totSal = grupo.reduce((s,r)=>s+(r.Salidas||0),0);
+        const totEnt = grupo.reduce((s,r)=>s+(r.Entradas||0),0);
+        const totSalM = grupo.reduce((s,r)=>s+(r["Salidas $"]||0),0);
+        const totEntM = grupo.reduce((s,r)=>s+(r["Entradas $"]||0),0);
+        const bono = totSalM - grupo.filter(r => (r["Salidas $"]||0) < 85).reduce((s,r)=>s+(r["Salidas $"]||0),0);
+
+        let row = ws.addRow([`Total ${bodega}`, round2(totSal), round2(totEnt), "", "", "", "TOTAL", round2(totSalM), round2(totEntM), ""]);
+        row.font = {bold:true};
+        row = ws.addRow(["","","","","","","TOTAL BONO", round2(bono), "", ""]);
+        row.font = {bold:true};
+        ws.addRow([]);
+        ws.addRow([]);
+      });
+
+      const gsal = rows.reduce((s,r)=>s+(r.Salidas||0),0);
+      const gent = rows.reduce((s,r)=>s+(r.Entradas||0),0);
+      const gsalM = rows.reduce((s,r)=>s+(r["Salidas $"]||0),0);
+      const gentM = rows.reduce((s,r)=>s+(r["Entradas $"]||0),0);
+      const bonoTotal = gsalM - rows.filter(r => (r["Salidas $"]||0) < 85).reduce((s,r)=>s+(r["Salidas $"]||0),0);
+
+      let row = ws.addRow(["TOTAL GENERAL", round2(gsal), round2(gent), "", "", "", "TOTAL", round2(gsalM), round2(gentM), ""]);
+      row.font = {bold:true};
+      row = ws.addRow(["","","","","","","TOTAL BONO", round2(bonoTotal), "", ""]);
+      row.font = {bold:true};
+
+      setColumnWidths(ws,[14,10,10,18,34,16,12,14,14,42]);
+    }
+
+    function addSummaryBlock(ws, title, rows){
+      const applyRowBorders = (row) => {
+        row.eachCell(cell => {
+          cell.border = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+        });
+      };
+
+      ws.addRow([title]);
+      ws.getRow(ws.rowCount).font = {bold:true};
+
+      const header = ws.addRow(["bodega","entradas","salidas","entradas $","salidas $"]);
+      header.font = {bold:true};
+      applyRowBorders(header);
+
+      if (!rows.length){
+        const row = ws.addRow(["TOTAL GENERAL",0,0,0,0]);
+        row.font = {bold:true};
+        applyRowBorders(row);
+        ws.addRow([]);
+        ws.addRow([]);
+        return;
+      }
+
+      const map = new Map();
+      rows.forEach(r => {
+        const key = r.Bodega;
+        if (!map.has(key)) map.set(key, {Bodega:key, Entradas:0, Salidas:0, EntradasM:0, SalidasM:0});
+        const cur = map.get(key);
+        cur.Entradas += (r.Entradas || 0);
+        cur.Salidas += (r.Salidas || 0);
+        cur.EntradasM += (r["Entradas $"] || 0);
+        cur.SalidasM += (r["Salidas $"] || 0);
+      });
+      const resumen = [...map.values()].sort((a,b)=>b.SalidasM-a.SalidasM);
+      resumen.forEach(r => {
+        const row = ws.addRow([r.Bodega, round2(r.Entradas), round2(r.Salidas), round2(r.EntradasM), round2(r.SalidasM)]);
+        applyRowBorders(row);
+      });
+      const tot = resumen.reduce((a,r)=>({Entradas:a.Entradas+r.Entradas, Salidas:a.Salidas+r.Salidas, EntradasM:a.EntradasM+r.EntradasM, SalidasM:a.SalidasM+r.SalidasM}), {Entradas:0,Salidas:0,EntradasM:0,SalidasM:0});
+      const row = ws.addRow(["TOTAL GENERAL", round2(tot.Entradas), round2(tot.Salidas), round2(tot.EntradasM), round2(tot.SalidasM)]);
+      row.font = {bold:true};
+      row.eachCell({ includeEmpty: true }, cell => {
+        cell.border = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+      });
+      applyRowBorders(row);
+      ws.addRow([]);
+      ws.addRow([]);
+    }
+
+    async function saveWorkbook(wb, filename){
+      const buffer = await wb.xlsx.writeBuffer();
+      saveAs(new Blob([buffer], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}), filename);
+    }
+
+    document.getElementById("btnPrepararOriginal").addEventListener("click", async () => {
+      try{
+        if (!normalizedRows.length) throw new Error("Primero carga un archivo.");
+        setStatus("Preparando Kardex original...");
+        const wb = new ExcelJS.Workbook();
+        addPreparedKardexSheet(wb, normalizedRows);
+        await saveWorkbook(wb, `Kardex_Preparado_${sourceMonthLabel}.xlsx`);
+        setStatus("Kardex preparado correctamente.", "ok");
+      } catch(err){ setStatus("No pude preparar el Kardex original: " + err.message, "err"); }
+    });
+
+    document.getElementById("btn2949").addEventListener("click", async () => {
+      try{
+        setStatus("Generando reporte 29 y 49...");
+        const rows29 = cloneRows(sourceRows).filter(r => r.Tipo_Num === 29);
+        const rows49 = cloneRows(sourceRows).filter(r => r.Tipo_Num === 49);
+        const wb = new ExcelJS.Workbook();
+        addDetailSheet(wb, "Tipo_29", rows29);
+        addDetailSheet(wb, "Tipo_49", rows49);
+        await saveWorkbook(wb, `Reporte_${sourceMonthLabel}_Tipo_29_49_Formato_Estandar.xlsx`);
+        setStatus("Reporte generado correctamente.", "ok");
+      } catch(err){ setStatus("No pude generar el reporte 29 y 49: " + err.message, "err"); }
+    });
+
+    document.getElementById("btn272850").addEventListener("click", async () => {
+      try{
+        setStatus("Generando reporte 27, 28 y 50...");
+        const rows2728 = cloneRows(sourceRows).filter(r => r.Tipo_Num === 27 || r.Tipo_Num === 28);
+        const rows50 = cloneRows(sourceRows).filter(r => r.Tipo_Num === 50);
+        const wb = new ExcelJS.Workbook();
+        addDetailSheet(wb, "Tipos_27_28", rows2728);
+        addDetailSheet(wb, "Tipo_50", rows50);
+        const ws = wb.addWorksheet("Resumen_27_28_50");
+        addSummaryBlock(ws, "RESUMEN POR BODEGA - TIPOS 27 Y 28", rows2728);
+        addSummaryBlock(ws, "RESUMEN POR BODEGA - TIPO 50", rows50);
+        setColumnWidths(ws,[16,12,12,14,14]);
+        await saveWorkbook(wb, `Reporte_${sourceMonthLabel}_Tipo_27_28_50_Formato_Estandar.xlsx`);
+        setStatus("Reporte generado correctamente.", "ok");
+      } catch(err){ setStatus("No pude generar el reporte 27, 28 y 50: " + err.message, "err"); }
+    });
+
+    document.getElementById("btn0460").addEventListener("click", async () => {
+      try{
+        setStatus("Generando reporte 04 al 60...");
+        const tipos = [...new Set(sourceRows.map(r => r.Tipo_Num).filter(v => Number.isFinite(v) && v >= 4 && v <= 60))].sort((a,b)=>a-b);
+        const wb = new ExcelJS.Workbook();
+        tipos.forEach(tipo => {
+          const rows = cloneRows(sourceRows).filter(r => r.Tipo_Num === tipo);
+          addDetailSheet(wb, `Tipo_${String(tipo).padStart(2,"0")}`, rows);
+          const ws = wb.addWorksheet(`Resumen_${String(tipo).padStart(2,"0")}`);
+          addSummaryBlock(ws, `RESUMEN POR BODEGA - TIPO ${String(tipo).padStart(2,"0")}`, rows);
+          setColumnWidths(ws,[16,12,12,14,14]);
+        });
+        await saveWorkbook(wb, `Reporte_${sourceMonthLabel}_Tipos_04_al_60_Formato_Estandar.xlsx`);
+        setStatus("Reporte generado correctamente.", "ok");
+      } catch(err){ setStatus("No pude generar el reporte 04 al 60: " + err.message, "err"); }
+    });
+
+    document.getElementById("btnTipoResumen").addEventListener("click", async () => {
+      try{
+        const tipoDesde = Number(String(inputTipoDesde.value || "").trim());
+        const tipoHasta = Number(String(inputTipoHasta.value || "").trim());
+        if (!Number.isFinite(tipoDesde) || !Number.isFinite(tipoHasta)) throw new Error("Escribe un rango válido de tipos.");
+        if (tipoDesde > tipoHasta) throw new Error("El tipo inicial no puede ser mayor que el tipo final.");
+
+        setStatus(`Generando reporte de ${String(tipoDesde).padStart(2,"0")} a ${String(tipoHasta).padStart(2,"0")} con resumen por bodega...`);
+        const tipos = [];
+        for (let t = tipoDesde; t <= tipoHasta; t++) tipos.push(t);
+
+        const wb = new ExcelJS.Workbook();
+        tipos.forEach(tipo => {
+          const rowsTipo = cloneRows(sourceRows).filter(r => r.Tipo_Num === tipo);
+          addDetailSheet(wb, `Tipo_${String(tipo).padStart(2,"0")}`, rowsTipo);
+          const ws = wb.addWorksheet(`Resumen_${String(tipo).padStart(2,"0")}`);
+          addSummaryBlock(ws, `RESUMEN POR BODEGA - TIPO ${String(tipo).padStart(2,"0")}`, rowsTipo);
+          setColumnWidths(ws,[16,12,12,14,14]);
+        });
+
+        const nombreArchivo = tipoDesde === tipoHasta
+          ? `Reporte_${sourceMonthLabel}_Tipo_${String(tipoDesde).padStart(2,"0")}_Resumen_Bodega.xlsx`
+          : `Reporte_${sourceMonthLabel}_Tipos_${String(tipoDesde).padStart(2,"0")}_a_${String(tipoHasta).padStart(2,"0")}_Resumen_Bodega.xlsx`;
+        await saveWorkbook(wb, nombreArchivo);
+        setStatus(`Reporte de ${String(tipoDesde).padStart(2,"0")} a ${String(tipoHasta).padStart(2,"0")} generado correctamente.`, "ok");
+      } catch(err){ setStatus("No pude generar el reporte por rango de tipos: " + err.message, "err"); }
+    });
+  </script>
+</body>
+</html>
