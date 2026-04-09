@@ -777,6 +777,51 @@
       setColumnWidths(ws,[18,38,12,4,18,38,12,4,18,38,12,4,18,38,12,4,18,38,12,4,18,38,12]);
     }
 
+    function addPreparedKardexSheet(wb, rows){
+      const ws = wb.addWorksheet("Kardex_Preparado");
+      const headers = ["codigo","prov","Folio","descripcion","Factura","Bodega","Fecha","Movimiento","Modulo","Tipo","Cia.","Bod.","Entradas","Salidas","ExistenciaCalculada","Costo","Precio","Entradas $","Salidas $","Actualizada","Observaciones","Usuario","Fecha Captura","Referencia","Clien/Prov","OT","Equipo"];
+      ws.addRow(headers);
+      ws.getRow(1).font = {bold:true};
+      ws.autoFilter = {from: "A1", to: "AA1"};
+
+      rows.forEach(r => {
+        ws.addRow([
+          r.codigo ?? "",
+          r.prov ?? (r.codigo ? String(r.codigo).substring(2,5) : ""),
+          r.Folio ?? "",
+          r.descripcion ?? "",
+          r.Factura ?? "",
+          r.Bodega ?? "",
+          r.Fecha ?? "",
+          r.Movimiento ?? "",
+          r.Modulo ?? "",
+          r.Tipo ?? "",
+          r["Cia."] ?? "",
+          r["Bod."] ?? "",
+          r.Entradas ?? null,
+          r.Salidas ?? null,
+          r.ExistenciaCalculada ?? "",
+          r.Costo ?? null,
+          r.Precio ?? null,
+          round2(r["Entradas $"] ?? null),
+          round2(r["Salidas $"] ?? null),
+          r.Actualizada ?? "",
+          r.Observaciones ?? "",
+          r.Usuario ?? "",
+          r["Fecha Captura"] ?? "",
+          r.Referencia ?? "",
+          r["Clien/Prov"] ?? "",
+          r.OT ?? "",
+          r.Equipo ?? ""
+        ]);
+      });
+
+      [13,14,16,17,18,19].forEach(col => {
+        ws.getColumn(col).numFmt = '#,##0.00';
+      });
+      setColumnWidths(ws,[18,10,16,34,16,14,12,12,18,26,8,8,12,12,16,12,12,14,14,14,42,18,22,16,16,10,12]);
+    }
+
     async function saveWorkbook(wb, filename){
       const buffer = await wb.xlsx.writeBuffer();
       saveAs(new Blob([buffer], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}), filename);
