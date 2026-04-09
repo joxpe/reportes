@@ -80,7 +80,7 @@
 
           <button id="btnPrepararOriginal" class="btn" disabled>
             Preparar Kardex original SIGA
-            <small>Convierte el archivo original al formato base limpio con columnas codigo, descripcion, Entradas $ y Salidas $.</small>
+            <small>Convierte el archivo original al formato base limpio con columnas codigo, prov, descripcion, Entradas $ y Salidas $.</small>
           </button>
 
           <div style="display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:center;">
@@ -93,6 +93,37 @@
             <input id="inputTipoHasta" type="number" min="0" max="999" placeholder="45" disabled
               style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
           </div>
+
+          <div style="display:grid;grid-template-columns:1fr auto auto 220px;gap:10px;align-items:center;">
+            <button id="btnRangoProveedor" class="btn" disabled style="margin:0;">
+              Generar reporte por rango y proveedor
+              <small>Filtra por un rango de tipos y hasta 5 proveedores. Cada proveedor genera su pestaña detalle y su pestaña de resumen.</small>
+            </button>
+            <input id="inputProvDesde" type="number" min="0" max="999" placeholder="30" disabled
+              style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
+            <input id="inputProvHasta" type="number" min="0" max="999" placeholder="31" disabled
+              style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
+            <input id="inputProveedores" type="text" placeholder="ala, ces, dal, gre" disabled
+              style="width:100%;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr auto auto 220px;gap:10px;align-items:center;">
+            <button id="btnProvConcentrado" class="btn" disabled style="margin:0;">
+              Generar concentrado por proveedor y tipos
+              <small>Una pestaña por proveedor. Cada tipo queda en su propio bloque con código, descripción y cantidad.</small>
+            </button>
+            <input id="inputConcDesde" type="number" min="0" max="999" placeholder="26" disabled
+              style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
+            <input id="inputConcHasta" type="number" min="0" max="999" placeholder="31" disabled
+              style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
+            <input id="inputConcProveedores" type="text" placeholder="por, dal, ces, gre" disabled
+              style="width:100%;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
+          </div>
+
+          <button id="btnProvConcentradoPDF" class="btn" disabled>
+            Generar PDF por proveedor para imprimir
+            <small>Crea un PDF por cada proveedor seleccionado, con bloques por tipo y espacio de firma al final.</small>
+          </button>
         </div>
 
         <div id="status" class="status"></div>
@@ -115,6 +146,8 @@
           <li>Calcula <strong>TOTAL BONO</strong> restando las salidas menores a 85.</li>
           <li>Genera el Excel listo para descargar.</li>
           <li>Ahora también permite generar un <strong>tipo individual</strong> (por ejemplo 45) con su <strong>resumen por bodega</strong>.</li>
+          <li>También puede generar reportes por <strong>rango de tipos + proveedor</strong>, con hasta <strong>5 proveedores</strong> y una pestaña por cada proveedor.</li>
+          <li>Y puede generar un <strong>concentrado por proveedor</strong> en Excel o en <strong>PDF listo para imprimir</strong>, con un espacio de firma al final.</li>
         </ul>
 
         <h2 style="margin-top:18px">3) Notas</h2>
@@ -130,6 +163,8 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
 
   <script>
     let sourceRows = [];
@@ -149,6 +184,15 @@
     const btnTipoResumen = document.getElementById("btnTipoResumen");
     const inputTipoDesde = document.getElementById("inputTipoDesde");
     const inputTipoHasta = document.getElementById("inputTipoHasta");
+    const btnRangoProveedor = document.getElementById("btnRangoProveedor");
+    const inputProvDesde = document.getElementById("inputProvDesde");
+    const inputProvHasta = document.getElementById("inputProvHasta");
+    const inputProveedores = document.getElementById("inputProveedores");
+    const btnProvConcentrado = document.getElementById("btnProvConcentrado");
+    const btnProvConcentradoPDF = document.getElementById("btnProvConcentradoPDF");
+    const inputConcDesde = document.getElementById("inputConcDesde");
+    const inputConcHasta = document.getElementById("inputConcHasta");
+    const inputConcProveedores = document.getElementById("inputConcProveedores");
     const lowerBodega = document.getElementById("lowerBodega");
 
     function setStatus(msg, kind=""){
@@ -232,6 +276,7 @@
         rows.push({
           Envia: row[0] ?? "",
           codigo: currentCode,
+          prov: currentCode ? String(currentCode).substring(2,5) : "",
           Folio: row[1] ?? "",
           descripcion: currentDesc,
           Factura: row[2] ?? "",
@@ -287,6 +332,7 @@
       normalizedRows = raw.map(r => ({
         Envia: r[keyMap["envia"]] ?? "",
         codigo: colCodigo ? r[keyMap[colCodigo]] : "",
+        prov: keyMap["prov"] ? r[keyMap["prov"]] : (colCodigo ? String(r[keyMap[colCodigo]] ?? "").substring(2,5) : ""),
         Folio: colFolio ? r[keyMap[colFolio]] : "",
         descripcion: colDesc ? r[keyMap[colDesc]] : "",
         Factura: keyMap["factura"] ? r[keyMap["factura"]] : "",
@@ -320,6 +366,7 @@
         return {
           Tipo_Num: tipoNumMatch ? Number(tipoNumMatch[1]) : null,
           Bodega: lowerBodega.checked ? String(r.Bodega ?? "").trim().toLowerCase() : String(r.Bodega ?? "").trim(),
+          Prov: String(r.prov ?? "").trim().toLowerCase(),
           Salidas: toNum(r.Salidas),
           Entradas: toNum(r.Entradas),
           CODIGO: r.codigo ?? "",
@@ -367,6 +414,15 @@
       btnTipoResumen.disabled = false;
       inputTipoDesde.disabled = false;
       inputTipoHasta.disabled = false;
+      btnRangoProveedor.disabled = false;
+      inputProvDesde.disabled = false;
+      inputProvHasta.disabled = false;
+      inputProveedores.disabled = false;
+      btnProvConcentrado.disabled = false;
+      btnProvConcentradoPDF.disabled = false;
+      inputConcDesde.disabled = false;
+      inputConcHasta.disabled = false;
+      inputConcProveedores.disabled = false;
     }
     drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("drag"); });
     drop.addEventListener("dragleave", () => drop.classList.remove("drag"));
@@ -383,52 +439,20 @@
     function cloneRows(rows){ return rows.map(r => ({...r})); }
     function round2(v){ if (v === null || v === undefined || v === "") return null; return Math.round(Number(v)*100)/100; }
     function setColumnWidths(ws, widths){ widths.forEach((w,i)=>ws.getColumn(i+1).width = w); }
+    function sanitizeSheetName(name){
+      return String(name || "Hoja").replace(/[\\\/?*\[\]:]/g, "_").slice(0,31) || "Hoja";
+    }
 
-    function addPreparedKardexSheet(wb, rows){
-      const ws = wb.addWorksheet("Kardex_Preparado");
-      const headers = ["codigo","Folio","descripcion","Factura","Bodega","Fecha","Movimiento","Modulo","Tipo","Cia.","Bod.","Entradas","Salidas","ExistenciaCalculada","Costo","Precio","Entradas $","Salidas $","Actualizada","Observaciones","Usuario","Fecha Captura","Referencia","Clien/Prov","OT","Equipo"];
-      ws.addRow(headers);
-      ws.getRow(1).font = {bold:true};
-      ws.autoFilter = {from: "A1", to: "Z1"};
-
-      rows.forEach((r, idx) => {
-        const row = ws.addRow([
-          r.codigo ?? "",
-          r.Folio ?? "",
-          r.descripcion ?? "",
-          r.Factura ?? "",
-          r.Bodega ?? "",
-          r.Fecha ?? "",
-          r.Movimiento ?? "",
-          r.Modulo ?? "",
-          r.Tipo ?? "",
-          r["Cia."] ?? "",
-          r["Bod."] ?? "",
-          r.Entradas ?? null,
-          r.Salidas ?? null,
-          r.ExistenciaCalculada ?? "",
-          r.Costo ?? null,
-          r.Precio ?? null,
-          null,
-          null,
-          r.Actualizada ?? "",
-          r.Observaciones ?? "",
-          r.Usuario ?? "",
-          r["Fecha Captura"] ?? "",
-          r.Referencia ?? "",
-          r["Clien/Prov"] ?? "",
-          r.OT ?? "",
-          r.Equipo ?? ""
-        ]);
-        const excelRow = idx + 2;
-        row.getCell(17).value = {formula:`L${excelRow}*P${excelRow}`, result: round2(r["Entradas $"] || 0)};
-        row.getCell(18).value = {formula:`M${excelRow}*P${excelRow}`, result: round2(r["Salidas $"] || 0)};
-      });
-
-      [12,13,15,16,17,18].forEach(col => {
-        ws.getColumn(col).numFmt = '#,##0.00';
-      });
-      setColumnWidths(ws,[18,16,34,16,14,12,12,18,26,8,8,12,12,16,12,12,14,14,14,42,18,22,16,16,10,12]);
+    function parseProviderList(text){
+      const items = String(text || "")
+        .replace(/\n/g, ",")
+        .split(/[;,]+/)
+        .map(v => String(v || "").trim().toLowerCase())
+        .filter(Boolean);
+      const unique = [...new Set(items)];
+      if (!unique.length) throw new Error("Escribe al menos un proveedor.");
+      if (unique.length > 5) throw new Error("Solo puedes indicar hasta 5 proveedores.");
+      return unique;
     }
 
     function addDetailSheet(wb, title, rows){
@@ -545,6 +569,214 @@
       ws.addRow([]);
     }
 
+
+    function buildProviderConcentradoBlocks(prov, tipoDesde, tipoHasta, rows){
+      const provNorm = String(prov || '').trim().toLowerCase();
+      const allRows = cloneRows(rows).filter(r => (
+        Number.isFinite(r.Tipo_Num) && r.Tipo_Num >= tipoDesde && r.Tipo_Num <= tipoHasta &&
+        String(r.Prov || '').trim().toLowerCase() === provNorm
+      ));
+
+      const qtyOf = (r) => {
+        const ent = Number(r.Entradas || 0);
+        const sal = Number(r.Salidas || 0);
+        return ent !== 0 ? ent : sal;
+      };
+
+      const blocks = [];
+      for (let tipo = tipoDesde; tipo <= tipoHasta; tipo++) {
+        const rowsTipo = allRows.filter(r => r.Tipo_Num === tipo);
+        const mapTipo = new Map();
+        rowsTipo.forEach(r => {
+          const key = String(r.CODIGO || '').trim();
+          if (!key) return;
+          if (!mapTipo.has(key)) mapTipo.set(key, {
+            codigo:key,
+            descripcion:String(r.DESCRIPCION || '').trim(),
+            cantidad:0
+          });
+          const cur = mapTipo.get(key);
+          cur.cantidad += qtyOf(r);
+          if (!cur.descripcion && r.DESCRIPCION) cur.descripcion = String(r.DESCRIPCION).trim();
+        });
+        const itemsTipo = [...mapTipo.values()].sort((a,b) => (b.cantidad||0) - (a.cantidad||0) || a.codigo.localeCompare(b.codigo));
+        blocks.push({ tipo, items: itemsTipo });
+      }
+      return { provNorm, blocks };
+    }
+
+    function sanitizeFilenamePart(v){
+      return String(v ?? '').replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'archivo';
+    }
+
+    async function saveProviderConcentradoPDFs(tipoDesde, tipoHasta, proveedores, rows){
+      if (!window.jspdf || !window.jspdf.jsPDF) throw new Error("No se pudo cargar la librería PDF.");
+      const { jsPDF } = window.jspdf;
+
+      proveedores.forEach((prov) => {
+        const { provNorm, blocks } = buildProviderConcentradoBlocks(prov, tipoDesde, tipoHasta, rows);
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 10;
+        const gap = 6;
+        const usableWidth = pageWidth - (margin * 2) - gap;
+        const colWidth = usableWidth / 2;
+        const reservedFooter = 30;
+        let pageNo = 1;
+        let startY = 28;
+        let rowY = startY;
+        let colHeights = [startY, startY];
+
+        const drawHeader = () => {
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(14);
+          doc.text(`CONCENTRADO POR PROVEEDOR ${provNorm.toUpperCase()}`, margin, 14);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(9);
+          doc.text(`Tipos ${String(tipoDesde).padStart(2,'0')} a ${String(tipoHasta).padStart(2,'0')}`, margin, 20);
+          doc.text(`Mes: ${sourceMonthLabel}`, pageWidth - margin, 20, { align: 'right' });
+          doc.text(`Página ${pageNo}`, pageWidth - margin, 14, { align: 'right' });
+          doc.setDrawColor(180);
+          doc.line(margin, 23, pageWidth - margin, 23);
+          startY = 28;
+          rowY = startY;
+          colHeights = [startY, startY];
+        };
+
+        const estimateBlockHeight = (itemCount) => {
+          const rowsCount = Math.max(1, itemCount + 1);
+          return 14 + 8 + (rowsCount * 6.2) + 6;
+        };
+
+        const placeBlock = (block, colIndex) => {
+          const x = margin + (colIndex * (colWidth + gap));
+          const totalTipo = block.items.reduce((acc, item) => acc + (Number(item.cantidad) || 0), 0);
+          const body = block.items.length
+            ? [
+                ...block.items.map(item => [item.codigo, round2(item.cantidad)]),
+                ['TOTAL', round2(totalTipo)]
+              ]
+            : [['SIN DATOS', '']];
+
+          const blockStartY = rowY;
+          doc.setFont('helvetica', 'bold');
+          doc.setFontSize(11);
+          doc.text(`TIPO ${String(block.tipo).padStart(2,'0')}`, x, blockStartY);
+
+          doc.autoTable({
+            startY: blockStartY + 2,
+            head: [['Código', 'Cantidad']],
+            body,
+            theme: 'grid',
+            tableWidth: colWidth,
+            margin: { left: x, right: pageWidth - x - colWidth },
+            styles: { font: 'helvetica', fontSize: 7.8, cellPadding: 1.5, valign: 'middle' },
+            headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
+            columnStyles: {
+              0: { cellWidth: colWidth - 24 },
+              1: { cellWidth: 24, halign: 'center' }
+            },
+            didParseCell: function(data) {
+              if (block.items.length && data.section === 'body' && data.row.index === body.length - 1) {
+                data.cell.styles.fontStyle = 'bold';
+              }
+            }
+          });
+          colHeights[colIndex] = doc.lastAutoTable.finalY + 5;
+        };
+
+        drawHeader();
+
+        for (let i = 0; i < blocks.length; i += 2) {
+          const leftBlock = blocks[i];
+          const rightBlock = blocks[i + 1] || null;
+          const leftNeed = estimateBlockHeight(leftBlock.items.length);
+          const rightNeed = rightBlock ? estimateBlockHeight(rightBlock.items.length) : 0;
+          const rowNeed = Math.max(leftNeed, rightNeed);
+
+          if (rowY + rowNeed > pageHeight - reservedFooter) {
+            doc.addPage();
+            pageNo += 1;
+            drawHeader();
+          }
+
+          placeBlock(leftBlock, 0);
+          if (rightBlock) placeBlock(rightBlock, 1);
+          rowY = Math.max(colHeights[0], colHeights[1]) + 4;
+        }
+
+        if (rowY + 18 > pageHeight - 12) {
+          doc.addPage();
+          pageNo += 1;
+          drawHeader();
+          rowY = startY;
+        }
+
+        const firmaY = Math.max(rowY + 8, pageHeight - 24);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.text('Firma de autorización', margin, firmaY);
+        doc.line(margin, firmaY + 6, 90, firmaY + 6);
+        doc.text('Nombre y firma', margin, firmaY + 11);
+        doc.text(`Proveedor: ${provNorm.toUpperCase()}`, pageWidth - margin, firmaY + 11, { align: 'right' });
+
+        const filename = `Concentrado_${sourceMonthLabel}_Tipos_${String(tipoDesde).padStart(2,'0')}_a_${String(tipoHasta).padStart(2,'0')}_Prov_${sanitizeFilenamePart(provNorm.toUpperCase())}.pdf`;
+        doc.save(filename);
+      });
+    }
+
+    function addProviderConcentradoSheet(wb, prov, tipoDesde, tipoHasta, rows){
+      const { provNorm, blocks } = buildProviderConcentradoBlocks(prov, tipoDesde, tipoHasta, rows);
+      const title = sanitizeSheetName(provNorm || 'prov');
+      const ws = wb.addWorksheet(title);
+
+      const addBordersToCols = (row, cols) => {
+        cols.forEach(col => {
+          const cell = row.getCell(col);
+          cell.border = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+        });
+      };
+
+      ws.addRow([`PROVEEDOR ${provNorm.toUpperCase()} | TIPOS ${String(tipoDesde).padStart(2,'0')} A ${String(tipoHasta).padStart(2,'0')}`]);
+      ws.getRow(1).font = {bold:true, size:14};
+      ws.addRow([]);
+
+      let colStart = 1;
+      blocks.forEach(block => {
+        ws.getCell(3, colStart).value = `TIPO ${String(block.tipo).padStart(2,'0')}`;
+        ws.getCell(3, colStart).font = {bold:true};
+
+        const h = ws.getRow(4);
+        h.getCell(colStart).value = 'codigo';
+        h.getCell(colStart+1).value = 'descripcion';
+        h.getCell(colStart+2).value = 'cantidad';
+        h.getCell(colStart).font = {bold:true};
+        h.getCell(colStart+1).font = {bold:true};
+        h.getCell(colStart+2).font = {bold:true};
+        addBordersToCols(h, [colStart, colStart+1, colStart+2]);
+
+        let rix = 5;
+        if (block.items.length){
+          block.items.forEach(item => {
+            const row = ws.getRow(rix++);
+            row.getCell(colStart).value = item.codigo;
+            row.getCell(colStart+1).value = item.descripcion;
+            row.getCell(colStart+2).value = round2(item.cantidad);
+            addBordersToCols(row, [colStart, colStart+1, colStart+2]);
+          });
+        } else {
+          const row = ws.getRow(rix++);
+          row.getCell(colStart).value = 'SIN DATOS';
+          addBordersToCols(row, [colStart]);
+        }
+
+        colStart += 4;
+      });
+
+      setColumnWidths(ws,[18,38,12,4,18,38,12,4,18,38,12,4,18,38,12,4,18,38,12,4,18,38,12]);
+    }
+
     async function saveWorkbook(wb, filename){
       const buffer = await wb.xlsx.writeBuffer();
       saveAs(new Blob([buffer], {type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}), filename);
@@ -606,6 +838,65 @@
         await saveWorkbook(wb, `Reporte_${sourceMonthLabel}_Tipos_04_al_60_Formato_Estandar.xlsx`);
         setStatus("Reporte generado correctamente.", "ok");
       } catch(err){ setStatus("No pude generar el reporte 04 al 60: " + err.message, "err"); }
+    });
+
+
+    document.getElementById("btnRangoProveedor").addEventListener("click", async () => {
+      try{
+        const tipoDesde = Number(String(inputProvDesde.value || "").trim());
+        const tipoHasta = Number(String(inputProvHasta.value || "").trim());
+        if (!Number.isFinite(tipoDesde) || !Number.isFinite(tipoHasta)) throw new Error("Escribe un rango válido de tipos.");
+        if (tipoDesde > tipoHasta) throw new Error("El tipo inicial no puede ser mayor que el tipo final.");
+
+        const proveedores = parseProviderList(inputProveedores.value);
+        setStatus(`Generando reporte de ${String(tipoDesde).padStart(2,"0")} a ${String(tipoHasta).padStart(2,"0")} por proveedor...`);
+
+        const wb = new ExcelJS.Workbook();
+        proveedores.forEach(prov => {
+          const rowsProv = cloneRows(sourceRows).filter(r => r.Tipo_Num >= tipoDesde && r.Tipo_Num <= tipoHasta && String(r.Prov || "").trim().toLowerCase() === prov);
+          addDetailSheet(wb, sanitizeSheetName(`Prov_${prov}`), rowsProv);
+          const ws = wb.addWorksheet(sanitizeSheetName(`Res_${prov}`));
+          addSummaryBlock(ws, `RESUMEN POR BODEGA - PROV ${prov.toUpperCase()} - TIPOS ${String(tipoDesde).padStart(2,"0")} A ${String(tipoHasta).padStart(2,"0")}`, rowsProv);
+          setColumnWidths(ws,[16,12,12,14,14]);
+        });
+
+        const nombreProv = proveedores.map(p => p.toUpperCase()).join("_");
+        const nombreArchivo = `Reporte_${sourceMonthLabel}_Tipos_${String(tipoDesde).padStart(2,"0")}_a_${String(tipoHasta).padStart(2,"0")}_Prov_${nombreProv}.xlsx`;
+        await saveWorkbook(wb, nombreArchivo);
+        setStatus(`Reporte por proveedores generado correctamente.`, "ok");
+      } catch(err){ setStatus("No pude generar el reporte por proveedor: " + err.message, "err"); }
+    });
+
+    document.getElementById("btnProvConcentrado").addEventListener("click", async () => {
+      try{
+        const tipoDesde = Number(String(inputConcDesde.value || "").trim());
+        const tipoHasta = Number(String(inputConcHasta.value || "").trim());
+        if (!Number.isFinite(tipoDesde) || !Number.isFinite(tipoHasta)) throw new Error("Escribe un rango válido de tipos.");
+        if (tipoDesde > tipoHasta) throw new Error("El tipo inicial no puede ser mayor que el tipo final.");
+        const proveedores = parseProviderList(inputConcProveedores.value);
+        setStatus(`Generando concentrado de ${String(tipoDesde).padStart(2,"0")} a ${String(tipoHasta).padStart(2,"0")} por proveedor...`);
+
+        const wb = new ExcelJS.Workbook();
+        proveedores.forEach(prov => addProviderConcentradoSheet(wb, prov, tipoDesde, tipoHasta, sourceRows));
+
+        const nombreProv = proveedores.map(p => p.toUpperCase()).join("_");
+        const nombreArchivo = `Concentrado_${sourceMonthLabel}_Tipos_${String(tipoDesde).padStart(2,"0")}_a_${String(tipoHasta).padStart(2,"0")}_Prov_${nombreProv}.xlsx`;
+        await saveWorkbook(wb, nombreArchivo);
+        setStatus(`Concentrado por proveedor generado correctamente.`, "ok");
+      } catch(err){ setStatus("No pude generar el concentrado por proveedor: " + err.message, "err"); }
+    });
+
+    document.getElementById("btnProvConcentradoPDF").addEventListener("click", async () => {
+      try{
+        const tipoDesde = Number(String(inputConcDesde.value || "").trim());
+        const tipoHasta = Number(String(inputConcHasta.value || "").trim());
+        if (!Number.isFinite(tipoDesde) || !Number.isFinite(tipoHasta)) throw new Error("Escribe un rango válido de tipos.");
+        if (tipoDesde > tipoHasta) throw new Error("El tipo inicial no puede ser mayor que el tipo final.");
+        const proveedores = parseProviderList(inputConcProveedores.value);
+        setStatus(`Generando PDF de ${String(tipoDesde).padStart(2,"0")} a ${String(tipoHasta).padStart(2,"0")} por proveedor...`);
+        await saveProviderConcentradoPDFs(tipoDesde, tipoHasta, proveedores, sourceRows);
+        setStatus(`PDF por proveedor generado correctamente.`, "ok");
+      } catch(err){ setStatus("No pude generar el PDF por proveedor: " + err.message, "err"); }
     });
 
     document.getElementById("btnTipoResumen").addEventListener("click", async () => {
