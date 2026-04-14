@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Generador de Reportes Kardex LIMSA</title>
+  <title>Generador de Reportes Kardex LIMSA v2026-04-13.1</title>
   <style>
     :root{
       --bg:#f6f8fb; --card:#ffffff; --text:#1f2937; --muted:#6b7280;
@@ -42,8 +42,8 @@
 <body>
   <div class="wrap">
     <div class="hero">
-      <h1>Generador de Reportes Kardex LIMSA</h1>
-      <p>Sube tu archivo Excel y genera los 3 reportes que normalmente pides en el chat.</p>
+      <h1>Generador de Reportes Kardex LIMSA <span style="font-size:16px;font-weight:700;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:999px;vertical-align:middle;">v2026-04-13.1</span></h1>
+      <p>Sube tu archivo Excel y genera los reportes configurados. <span style="opacity:.95;">Versión visible para control de cambios.</span></p>
     </div>
 
     <div class="grid">
@@ -94,35 +94,43 @@
               style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
           </div>
 
-          <div style="display:grid;grid-template-columns:1fr auto auto 220px;gap:10px;align-items:center;">
+          <div style="display:flex;flex-direction:column;gap:8px;">
             <button id="btnRangoProveedor" class="btn" disabled style="margin:0;">
               Generar reporte por rango y proveedor
               <small>Filtra por un rango de tipos y hasta 5 proveedores. Cada proveedor genera su pestaña detalle y su pestaña de resumen.</small>
             </button>
-            <input id="inputProvDesde" type="number" min="0" max="999" placeholder="30" disabled
-              style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
-            <input id="inputProvHasta" type="number" min="0" max="999" placeholder="31" disabled
-              style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
-            <input id="inputProveedores" type="text" placeholder="ala, ces, dal, gre" disabled
-              style="width:100%;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+              <input id="inputProvDesde" type="number" min="0" max="999" placeholder="30" disabled
+                style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
+              <input id="inputProvHasta" type="number" min="0" max="999" placeholder="31" disabled
+                style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
+              <input id="inputProveedores" type="text" placeholder="ala, ces, dal, gre" disabled
+                style="flex:1;min-width:220px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
+            </div>
           </div>
 
-          <div style="display:grid;grid-template-columns:1fr auto auto 220px;gap:10px;align-items:center;">
+          <div style="display:flex;flex-direction:column;gap:8px;">
             <button id="btnProvConcentrado" class="btn" disabled style="margin:0;">
               Generar concentrado por proveedor y tipos
               <small>Una pestaña por proveedor. Cada tipo queda en su propio bloque con código, descripción y cantidad.</small>
             </button>
-            <input id="inputConcDesde" type="number" min="0" max="999" placeholder="26" disabled
-              style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
-            <input id="inputConcHasta" type="number" min="0" max="999" placeholder="31" disabled
-              style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
-            <input id="inputConcProveedores" type="text" placeholder="por, dal, ces, gre" disabled
-              style="width:100%;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+              <input id="inputConcDesde" type="number" min="0" max="999" placeholder="26" disabled
+                style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
+              <input id="inputConcHasta" type="number" min="0" max="999" placeholder="31" disabled
+                style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
+              <input id="inputConcProveedores" type="text" placeholder="por, dal, ces, gre" disabled
+                style="flex:1;min-width:220px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
+            </div>
           </div>
 
           <button id="btnProvConcentradoPDF" class="btn" disabled>
             Generar PDF por proveedor para imprimir
             <small>Crea un PDF por cada proveedor seleccionado, con bloques por tipo y espacio de firma al final.</small>
+          </button>
+          <button id="btnMetas" class="btn" disabled>
+            Generar reporte de metas
+            <small>Crea una pestaña Metas con bloques para tipo 50, tipos 27 y 28, tipo 45 y tipo 36.</small>
           </button>
         </div>
 
@@ -148,6 +156,7 @@
           <li>Ahora también permite generar un <strong>tipo individual</strong> (por ejemplo 45) con su <strong>resumen por bodega</strong>.</li>
           <li>También puede generar reportes por <strong>rango de tipos + proveedor</strong>, con hasta <strong>5 proveedores</strong> y una pestaña por cada proveedor.</li>
           <li>Y puede generar un <strong>concentrado por proveedor</strong> en Excel o en <strong>PDF listo para imprimir</strong>, con un espacio de firma al final.</li>
+          <li>También puede generar un <strong>reporte exclusivo de metas</strong> para los tipos 50, 27/28, 45 y 36.</li>
         </ul>
 
         <h2 style="margin-top:18px">3) Notas</h2>
@@ -172,6 +181,8 @@
     let sourceName = "";
     let sourceMonthLabel = "";
     let sourceMode = "";
+    const APP_VERSION = "v2026-04-13.1";
+
 
     const drop = document.getElementById("drop");
     const fileInput = document.getElementById("fileInput");
@@ -181,6 +192,7 @@
     const btn272850 = document.getElementById("btn272850");
     const btn0460 = document.getElementById("btn0460");
     const btnPrepararOriginal = document.getElementById("btnPrepararOriginal");
+    const btnMetas = document.getElementById("btnMetas");
     const btnTipoResumen = document.getElementById("btnTipoResumen");
     const inputTipoDesde = document.getElementById("inputTipoDesde");
     const inputTipoHasta = document.getElementById("inputTipoHasta");
@@ -420,6 +432,7 @@
       inputProveedores.disabled = false;
       btnProvConcentrado.disabled = false;
       btnProvConcentradoPDF.disabled = false;
+      btnMetas.disabled = false;
       inputConcDesde.disabled = false;
       inputConcHasta.disabled = false;
       inputConcProveedores.disabled = false;
@@ -454,6 +467,20 @@
       if (unique.length > 5) throw new Error("Solo puedes indicar hasta 5 proveedores.");
       return unique;
     }
+
+    function countBusinessDaysElapsed(date = new Date()){
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const today = date.getDate();
+      let count = 0;
+      for (let day = 1; day <= today; day++){
+        const d = new Date(year, month, day);
+        const dow = d.getDay(); // 0 domingo, 6 sábado
+        if (dow !== 0 && dow !== 6) count += 1;
+      }
+      return Math.max(count, 1);
+    }
+
 
     function addDetailSheet(wb, title, rows){
       const ws = wb.addWorksheet(title);
@@ -522,7 +549,7 @@
 
     function addSummaryBlock(ws, title, rows){
       const applyRowBorders = (row) => {
-        row.eachCell(cell => {
+        row.eachCell({ includeEmpty: true }, cell => {
           cell.border = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
         });
       };
@@ -530,12 +557,31 @@
       ws.addRow([title]);
       ws.getRow(ws.rowCount).font = {bold:true};
 
-      const header = ws.addRow(["bodega","entradas","salidas","entradas $","salidas $"]);
+      const header = ws.addRow(["bodega","conteo entradas","conteo salidas","entradas","salidas","entradas $","salidas $"]);
       header.font = {bold:true};
       applyRowBorders(header);
 
-      if (!rows.length){
-        const row = ws.addRow(["TOTAL GENERAL",0,0,0,0]);
+      const map = new Map();
+      rows.forEach(r => {
+        const key = String(r.Bodega || '').trim();
+        if (!key) return;
+        if (!map.has(key)) map.set(key, {Bodega:key, ConteoEntradas:0, ConteoSalidas:0, Entradas:0, Salidas:0, EntradasM:0, SalidasM:0});
+        const cur = map.get(key);
+        const ent = Number(r.Entradas || 0);
+        const sal = Number(r.Salidas || 0);
+        const entM = Number(r["Entradas $"] || 0);
+        const salM = Number(r["Salidas $"] || 0);
+        if (ent !== 0) cur.ConteoEntradas += 1;
+        if (sal !== 0) cur.ConteoSalidas += 1;
+        cur.Entradas += ent;
+        cur.Salidas += sal;
+        cur.EntradasM += entM;
+        cur.SalidasM += salM;
+      });
+
+      const resumen = [...map.values()].sort((a,b)=>b.SalidasM-a.SalidasM || a.Bodega.localeCompare(b.Bodega));
+      if (!resumen.length){
+        const row = ws.addRow(["TOTAL GENERAL",0,0,0,0,0,0]);
         row.font = {bold:true};
         applyRowBorders(row);
         ws.addRow([]);
@@ -543,28 +589,290 @@
         return;
       }
 
-      const map = new Map();
-      rows.forEach(r => {
-        const key = r.Bodega;
-        if (!map.has(key)) map.set(key, {Bodega:key, Entradas:0, Salidas:0, EntradasM:0, SalidasM:0});
-        const cur = map.get(key);
-        cur.Entradas += (r.Entradas || 0);
-        cur.Salidas += (r.Salidas || 0);
-        cur.EntradasM += (r["Entradas $"] || 0);
-        cur.SalidasM += (r["Salidas $"] || 0);
-      });
-      const resumen = [...map.values()].sort((a,b)=>b.SalidasM-a.SalidasM);
       resumen.forEach(r => {
-        const row = ws.addRow([r.Bodega, round2(r.Entradas), round2(r.Salidas), round2(r.EntradasM), round2(r.SalidasM)]);
+        const row = ws.addRow([r.Bodega, r.ConteoEntradas, r.ConteoSalidas, round2(r.Entradas), round2(r.Salidas), round2(r.EntradasM), round2(r.SalidasM)]);
         applyRowBorders(row);
       });
-      const tot = resumen.reduce((a,r)=>({Entradas:a.Entradas+r.Entradas, Salidas:a.Salidas+r.Salidas, EntradasM:a.EntradasM+r.EntradasM, SalidasM:a.SalidasM+r.SalidasM}), {Entradas:0,Salidas:0,EntradasM:0,SalidasM:0});
-      const row = ws.addRow(["TOTAL GENERAL", round2(tot.Entradas), round2(tot.Salidas), round2(tot.EntradasM), round2(tot.SalidasM)]);
+      const tot = resumen.reduce((a,r)=>({
+        ConteoEntradas:a.ConteoEntradas+r.ConteoEntradas,
+        ConteoSalidas:a.ConteoSalidas+r.ConteoSalidas,
+        Entradas:a.Entradas+r.Entradas,
+        Salidas:a.Salidas+r.Salidas,
+        EntradasM:a.EntradasM+r.EntradasM,
+        SalidasM:a.SalidasM+r.SalidasM
+      }), {ConteoEntradas:0,ConteoSalidas:0,Entradas:0,Salidas:0,EntradasM:0,SalidasM:0});
+      const row = ws.addRow(["TOTAL GENERAL", tot.ConteoEntradas, tot.ConteoSalidas, round2(tot.Entradas), round2(tot.Salidas), round2(tot.EntradasM), round2(tot.SalidasM)]);
       row.font = {bold:true};
-      row.eachCell({ includeEmpty: true }, cell => {
-        cell.border = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
-      });
       applyRowBorders(row);
+      ws.addRow([]);
+      ws.addRow([]);
+    }
+
+    // =========================
+    // METAS EDITABLES
+    // =========================
+    // Cambia aquí las metas cuando sea necesario.
+    // Nota importante:
+    // - El bloque "27 y 28" usa la meta del tipo 27.
+    // - Los bloques 50, 45 y 36 usan su propia meta.
+    const metasPorTipo = {
+      50: {
+        // Tipo 50
+        "25-ai": 3800,
+        "25-ci": 2375,
+        "25-cr": 513,
+        "30-ac": 990,
+        "30-cc": 600,
+        "35-as": 320,
+        "35-cs": 210,
+        "37-at": 400,
+        "37-ct": 210,
+        "40-am": 105,
+        "40-cm": 105,
+        "45-al": 990,
+        "45-cl": 570,
+        "50-ab": 1100,
+        "50-cb": 840,
+        "61-aj": 187,
+        "61-cj": 420,
+        "70-ag": 105,
+        "70-cg": 560,
+        "71-ah": 231,
+        "71-ch": 187,
+        "72-aa": 315,
+        "74-ad": 115.5,
+        "74-cd": 187
+      },
+      27: {
+        // Meta usada para el bloque TIPOS 27 Y 28
+        "25-ai": 475,
+        "25-ci": 7650,
+        "25-cr": 150,
+        "30-ac": 200,
+        "30-cc": 525,
+        "35-as": 50,
+        "35-cs": 100,
+        "37-at": 50,
+        "37-ct": 189,
+        "40-am": 50,
+        "40-cm": 50,
+        "45-al": 200,
+        "45-cl": 300,
+        "50-ab": 200,
+        "50-cb": 2300,
+        "61-aj": 50,
+        "61-cj": 800,
+        "70-ag": 50,
+        "70-cg": 1300,
+        "71-ah": 50,
+        "71-ch": 350,
+        "72-aa": 100,
+        "74-ad": 50,
+        "74-cd": 150
+      },
+      45: {
+        // Tipo 45
+        "25-ai": 110,
+        "25-ci": 230,
+        "25-cr": 20,
+        "30-ac": 70,
+        "30-cc": 45,
+        "35-as": 28,
+        "35-cs": 18,
+        "37-at": 22,
+        "37-ct": 18,
+        "40-am": 13,
+        "40-cm": 8,
+        "45-al": 70,
+        "45-cl": 35,
+        "50-ab": 80,
+        "50-cb": 108,
+        "61-aj": 18,
+        "61-cj": 30,
+        "70-ag": 5,
+        "70-cg": 50,
+        "71-ah": 40,
+        "71-ch": 18,
+        "72-aa": 20,
+        "74-ad": 10,
+        "74-cd": 10
+      },
+      36: {
+        // Tipo 36
+        "25-ai": 25,
+        "25-ci": 38,
+        "25-cr": 3,
+        "30-ac": 19,
+        "30-cc": 13,
+        "35-as": 6,
+        "35-cs": 4,
+        "37-at": 5,
+        "37-ct": 4,
+        "40-am": 3,
+        "40-cm": 1,
+        "45-al": 22,
+        "45-cl": 4,
+        "50-ab": 19,
+        "50-cb": 30,
+        "61-aj": 3,
+        "61-cj": 5,
+        "70-ag": 2,
+        "70-cg": 6,
+        "71-ah": 6,
+        "71-ch": 3,
+        "72-aa": 6,
+        "74-ad": 6,
+        "74-cd": 2
+      }
+    };
+
+    function addMetasBlock(ws, title, rows, metaTipo, tiposComparados){
+      const applyRowBorders = (row) => {
+        row.eachCell({ includeEmpty: true }, cell => {
+          cell.border = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
+        });
+      };
+      const normalizeKey = (v) => String(v || '').trim().toLowerCase();
+      const diasHabilesTranscurridos = countBusinessDaysElapsed(new Date());
+      const diasHabilesMes = 22;
+
+      ws.addRow([title]);
+      ws.getRow(ws.rowCount).font = {bold:true};
+
+      const header = ws.addRow([
+        "bodega","conteo entradas","conteo salidas","entradas","salidas","entradas $","salidas $",
+        "meta salidas","diferencia","% uso meta","cumplimiento","",
+        "base actual","días hábiles","proyección cierre","dif. proyectada","% uso meta proy.","pronóstico"
+      ]);
+      header.font = {bold:true};
+      applyRowBorders(header);
+
+      const metas = metasPorTipo[metaTipo] || {};
+      const map = new Map();
+      Object.entries(metas).forEach(([bodega, meta]) => {
+        map.set(normalizeKey(bodega), {
+          Bodega:bodega, ConteoEntradas:0, ConteoSalidas:0, Entradas:0, Salidas:0, EntradasM:0, SalidasM:0, Meta:Number(meta || 0)
+        });
+      });
+
+      rows.filter(r => tiposComparados.includes(r.Tipo_Num)).forEach(r => {
+        const key = normalizeKey(r.Bodega);
+        if (!key) return;
+        if (!map.has(key)) {
+          map.set(key, {
+            Bodega:String(r.Bodega || '').trim(), ConteoEntradas:0, ConteoSalidas:0, Entradas:0, Salidas:0, EntradasM:0, SalidasM:0, Meta:0
+          });
+        }
+        const cur = map.get(key);
+        const ent = Number(r.Entradas || 0);
+        const sal = Number(r.Salidas || 0);
+        const entM = Number(r["Entradas $"] || 0);
+        const salM = Number(r["Salidas $"] || 0);
+        if (ent !== 0) cur.ConteoEntradas += 1;
+        if (sal !== 0) cur.ConteoSalidas += 1;
+        cur.Entradas += ent;
+        cur.Salidas += sal;
+        cur.EntradasM += entM;
+        cur.SalidasM += salM;
+      });
+
+      const resumen = [...map.values()]
+        .map(r => {
+          const baseActual = (metaTipo === 45 || metaTipo === 36)
+            ? Math.max(r.ConteoEntradas, r.ConteoSalidas)
+            : r.ConteoSalidas;
+
+          const pct = r.Meta > 0 ? (baseActual / r.Meta) : 0;
+          const cumple = baseActual <= r.Meta ? 'Cumple' : 'No cumple';
+
+          const proyeccion = diasHabilesTranscurridos > 0
+            ? (baseActual / diasHabilesTranscurridos) * diasHabilesMes
+            : 0;
+
+          const pctProy = r.Meta > 0 ? (proyeccion / r.Meta) : 0;
+          let pronostico = 'Cumplirá';
+          if (pctProy > 1) pronostico = 'No cumplirá';
+          else if (pctProy > 0.95) pronostico = 'En riesgo';
+
+          return {...r, baseActual, pct, cumple, proyeccion, pctProy, pronostico};
+        })
+        .sort((a,b) => {
+          const aNoCumple = a.cumple === 'No cumple' ? 1 : 0;
+          const bNoCumple = b.cumple === 'No cumple' ? 1 : 0;
+          if (aNoCumple !== bNoCumple) return bNoCumple - aNoCumple;
+          if (b.pct !== a.pct) return b.pct - a.pct;
+          if (b.baseActual !== a.baseActual) return b.baseActual - a.baseActual;
+          return a.Bodega.localeCompare(b.Bodega);
+        });
+
+      resumen.forEach(r => {
+        const diff = round2(r.Meta - r.baseActual);
+        const diffProy = round2(r.Meta - r.proyeccion);
+        const row = ws.addRow([
+          r.Bodega, r.ConteoEntradas, r.ConteoSalidas, round2(r.Entradas), round2(r.Salidas), round2(r.EntradasM), round2(r.SalidasM),
+          round2(r.Meta), diff, r.pct, r.cumple, "",
+          r.baseActual, diasHabilesTranscurridos, round2(r.proyeccion), diffProy, r.pctProy, r.pronostico
+        ]);
+        row.getCell(10).numFmt = '0.00%';
+        row.getCell(17).numFmt = '0.00%';
+
+        row.getCell(11).font = {bold:true, color:{argb: r.cumple === 'Cumple' ? 'FF166534' : 'FFB91C1C'}};
+        if (r.pct > 1) row.getCell(10).font = {bold:true, color:{argb:'FFB91C1C'}};
+
+        const pronosticoCell = row.getCell(18);
+        if (r.pronostico === 'No cumplirá') {
+          pronosticoCell.font = {bold:true, color:{argb:'FFB91C1C'}};
+        } else if (r.pronostico === 'En riesgo') {
+          pronosticoCell.font = {bold:true, color:{argb:'FFB45309'}};
+        } else {
+          pronosticoCell.font = {bold:true, color:{argb:'FF166534'}};
+        }
+        if (r.pctProy > 1) row.getCell(17).font = {bold:true, color:{argb:'FFB91C1C'}};
+
+        applyRowBorders(row);
+      });
+
+      const tot = resumen.reduce((a,r)=>({
+        ConteoEntradas:a.ConteoEntradas+r.ConteoEntradas,
+        ConteoSalidas:a.ConteoSalidas+r.ConteoSalidas,
+        Entradas:a.Entradas+r.Entradas,
+        Salidas:a.Salidas+r.Salidas,
+        EntradasM:a.EntradasM+r.EntradasM,
+        SalidasM:a.SalidasM+r.SalidasM,
+        Meta:a.Meta+r.Meta,
+        BaseActual:a.BaseActual+r.baseActual,
+        Proyeccion:a.Proyeccion+r.proyeccion
+      }), {ConteoEntradas:0,ConteoSalidas:0,Entradas:0,Salidas:0,EntradasM:0,SalidasM:0,Meta:0,BaseActual:0,Proyeccion:0});
+
+      const totPct = tot.Meta > 0 ? (tot.BaseActual / tot.Meta) : 0;
+      const totCumple = tot.BaseActual <= tot.Meta ? 'Cumple' : 'No cumple';
+      const totPctProy = tot.Meta > 0 ? (tot.Proyeccion / tot.Meta) : 0;
+      let totPronostico = 'Cumplirá';
+      if (totPctProy > 1) totPronostico = 'No cumplirá';
+      else if (totPctProy > 0.95) totPronostico = 'En riesgo';
+
+      const totalRow = ws.addRow([
+        "TOTAL GENERAL", tot.ConteoEntradas, tot.ConteoSalidas, round2(tot.Entradas), round2(tot.Salidas), round2(tot.EntradasM), round2(tot.SalidasM),
+        round2(tot.Meta), round2(tot.Meta - tot.BaseActual), totPct, totCumple, "",
+        round2(tot.BaseActual), diasHabilesTranscurridos, round2(tot.Proyeccion), round2(tot.Meta - tot.Proyeccion), totPctProy, totPronostico
+      ]);
+      totalRow.font = {bold:true};
+      totalRow.getCell(10).numFmt = '0.00%';
+      totalRow.getCell(17).numFmt = '0.00%';
+      totalRow.getCell(11).font = {bold:true, color:{argb: totCumple === 'Cumple' ? 'FF166534' : 'FFB91C1C'}};
+      if (totPct > 1) totalRow.getCell(10).font = {bold:true, color:{argb:'FFB91C1C'}};
+
+      const totalPronosticoCell = totalRow.getCell(18);
+      if (totPronostico === 'No cumplirá') {
+        totalPronosticoCell.font = {bold:true, color:{argb:'FFB91C1C'}};
+      } else if (totPronostico === 'En riesgo') {
+        totalPronosticoCell.font = {bold:true, color:{argb:'FFB45309'}};
+      } else {
+        totalPronosticoCell.font = {bold:true, color:{argb:'FF166534'}};
+      }
+      if (totPctProy > 1) totalRow.getCell(17).font = {bold:true, color:{argb:'FFB91C1C'}};
+
+      applyRowBorders(totalRow);
       ws.addRow([]);
       ws.addRow([]);
     }
@@ -862,7 +1170,7 @@
         const ws = wb.addWorksheet("Resumen_27_28_50");
         addSummaryBlock(ws, "RESUMEN POR BODEGA - TIPOS 27 Y 28", rows2728);
         addSummaryBlock(ws, "RESUMEN POR BODEGA - TIPO 50", rows50);
-        setColumnWidths(ws,[16,12,12,14,14]);
+        setColumnWidths(ws,[16,16,16,12,12,14,14]);
         await saveWorkbook(wb, `Reporte_${sourceMonthLabel}_Tipo_27_28_50_Formato_Estandar.xlsx`);
         setStatus("Reporte generado correctamente.", "ok");
       } catch(err){ setStatus("No pude generar el reporte 27, 28 y 50: " + err.message, "err"); }
@@ -878,7 +1186,7 @@
           addDetailSheet(wb, `Tipo_${String(tipo).padStart(2,"0")}`, rows);
           const ws = wb.addWorksheet(`Resumen_${String(tipo).padStart(2,"0")}`);
           addSummaryBlock(ws, `RESUMEN POR BODEGA - TIPO ${String(tipo).padStart(2,"0")}`, rows);
-          setColumnWidths(ws,[16,12,12,14,14]);
+          setColumnWidths(ws,[16,16,16,12,12,14,14]);
         });
         await saveWorkbook(wb, `Reporte_${sourceMonthLabel}_Tipos_04_al_60_Formato_Estandar.xlsx`);
         setStatus("Reporte generado correctamente.", "ok");
@@ -902,7 +1210,7 @@
           addDetailSheet(wb, sanitizeSheetName(`Prov_${prov}`), rowsProv);
           const ws = wb.addWorksheet(sanitizeSheetName(`Res_${prov}`));
           addSummaryBlock(ws, `RESUMEN POR BODEGA - PROV ${prov.toUpperCase()} - TIPOS ${String(tipoDesde).padStart(2,"0")} A ${String(tipoHasta).padStart(2,"0")}`, rowsProv);
-          setColumnWidths(ws,[16,12,12,14,14]);
+          setColumnWidths(ws,[16,16,16,12,12,14,14]);
         });
 
         const nombreProv = proveedores.map(p => p.toUpperCase()).join("_");
@@ -944,6 +1252,21 @@
       } catch(err){ setStatus("No pude generar el PDF por proveedor: " + err.message, "err"); }
     });
 
+    document.getElementById("btnMetas").addEventListener("click", async () => {
+      try{
+        setStatus("Generando reporte de metas...");
+        const wb = new ExcelJS.Workbook();
+        const ws = wb.addWorksheet("Metas");
+        addMetasBlock(ws, "METAS TIPO 50", sourceRows, 50, [50]);
+        addMetasBlock(ws, "METAS TIPOS 27 Y 28", sourceRows, 27, [27,28]);
+        addMetasBlock(ws, "METAS TIPO 45", sourceRows, 45, [45]);
+        addMetasBlock(ws, "METAS TIPO 36", sourceRows, 36, [36]);
+        setColumnWidths(ws,[16,16,16,12,12,14,14,14,12,12,14,4,12,12,14,14,14,14]);
+        await saveWorkbook(wb, `Reporte_${sourceMonthLabel}_Metas.xlsx`);
+        setStatus("Reporte de metas generado correctamente.", "ok");
+      } catch(err){ setStatus("No pude generar el reporte de metas: " + err.message, "err"); }
+    });
+
     document.getElementById("btnTipoResumen").addEventListener("click", async () => {
       try{
         const tipoDesde = Number(String(inputTipoDesde.value || "").trim());
@@ -961,7 +1284,7 @@
           addDetailSheet(wb, `Tipo_${String(tipo).padStart(2,"0")}`, rowsTipo);
           const ws = wb.addWorksheet(`Resumen_${String(tipo).padStart(2,"0")}`);
           addSummaryBlock(ws, `RESUMEN POR BODEGA - TIPO ${String(tipo).padStart(2,"0")}`, rowsTipo);
-          setColumnWidths(ws,[16,12,12,14,14]);
+          setColumnWidths(ws,[16,16,16,12,12,14,14]);
         });
 
         const nombreArchivo = tipoDesde === tipoHasta
