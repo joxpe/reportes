@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Generador de Reportes Kardex LIMSA v2026-04-13.1</title>
+  <title>Generador de Reportes Kardex LIMSA v2026-04-13.2</title>
   <style>
     :root{
       --bg:#f6f8fb; --card:#ffffff; --text:#1f2937; --muted:#6b7280;
@@ -42,7 +42,7 @@
 <body>
   <div class="wrap">
     <div class="hero">
-      <h1>Generador de Reportes Kardex LIMSA <span style="font-size:16px;font-weight:700;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:999px;vertical-align:middle;">v2026-04-13.1</span></h1>
+      <h1>Generador de Reportes Kardex LIMSA <span style="font-size:16px;font-weight:700;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:999px;vertical-align:middle;">v2026-04-13.2</span></h1>
       <p>Sube tu archivo Excel y genera los reportes configurados. <span style="opacity:.95;">Versión visible para control de cambios.</span></p>
     </div>
 
@@ -181,7 +181,7 @@
     let sourceName = "";
     let sourceMonthLabel = "";
     let sourceMode = "";
-    const APP_VERSION = "v2026-04-13.1";
+    const APP_VERSION = "v2026-04-13.2";
 
 
     const drop = document.getElementById("drop");
@@ -778,9 +778,17 @@
 
       const resumen = [...map.values()]
         .map(r => {
-          const baseActual = (metaTipo === 45 || metaTipo === 36)
-            ? Math.max(r.ConteoEntradas, r.ConteoSalidas)
-            : r.ConteoSalidas;
+          // Reglas de comparación por bloque:
+          // - Tipo 50 y Tipos 27/28: comparar contra (salidas $ - entradas $)
+          // - Tipo 45 y Tipo 36: comparar contra el mayor entre conteo entradas y conteo salidas
+          let baseActual = 0;
+          if (metaTipo === 50 || metaTipo === 27) {
+            baseActual = Number(r.SalidasM || 0) - Number(r.EntradasM || 0);
+          } else if (metaTipo === 45 || metaTipo === 36) {
+            baseActual = Math.max(r.ConteoEntradas, r.ConteoSalidas);
+          } else {
+            baseActual = r.ConteoSalidas;
+          }
 
           const pct = r.Meta > 0 ? (baseActual / r.Meta) : 0;
           const cumple = baseActual <= r.Meta ? 'Cumple' : 'No cumple';
