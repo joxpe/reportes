@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Generador de Reportes Kardex LIMSA v2026-04-15.1</title>
+  <title>Generador de Reportes Kardex LIMSA v2026-04-15.4</title>
   <style>
     :root{
       --bg:#f6f8fb; --card:#ffffff; --text:#1f2937; --muted:#6b7280;
@@ -42,7 +42,7 @@
 <body>
   <div class="wrap">
     <div class="hero">
-      <h1>Generador de Reportes Kardex LIMSA <span style="font-size:16px;font-weight:700;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:999px;vertical-align:middle;">v2026-04-15.1</span></h1>
+      <h1>Generador de Reportes Kardex LIMSA <span style="font-size:16px;font-weight:700;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:999px;vertical-align:middle;">v2026-04-15.4</span></h1>
       <p>Sube tu archivo Excel y genera los reportes configurados. <span style="opacity:.95;">Versión visible para control de cambios.</span></p>
     </div>
 
@@ -181,7 +181,7 @@
     let sourceName = "";
     let sourceMonthLabel = "";
     let sourceMode = "";
-    const APP_VERSION = "v2026-04-15.1";
+    const APP_VERSION = "v2026-04-15.4";
 
 
     const drop = document.getElementById("drop");
@@ -492,15 +492,15 @@
 
     function addDetailSheet(wb, title, rows){
       const ws = wb.addWorksheet(title);
-      ws.addRow(["bodega","salidas","entradas","codigo","descripcion","folio","fecha","salida $","entrada $","observaciones"]);
+      ws.addRow(["bodega","salidas","entradas","codigo","descripcion","folio","fecha","salida $","entrada $","observaciones","revisar"]);
       ws.getRow(1).font = {bold:true};
 
       if (!rows.length){
-        ws.addRow(["TOTAL GENERAL",0,0,"","","","TOTAL",0,0,""]);
-        ws.addRow(["","","","","","","TOTAL BONO",0,"",""]);
+        ws.addRow(["TOTAL GENERAL",0,0,"","","","TOTAL",0,0,"",""]);
+        ws.addRow(["","","","","","","TOTAL BONO",0,"","",""]);
         ws.getRow(ws.rowCount).font = {bold:true};
         ws.getRow(ws.rowCount-1).font = {bold:true};
-        setColumnWidths(ws,[14,10,10,18,34,16,12,14,14,42]);
+        setColumnWidths(ws,[14,10,10,18,34,16,12,14,14,42,12]);
         applyFirstRowAutoFilter(ws);
         return;
       }
@@ -510,21 +510,33 @@
       temp.forEach(r => { bodegaTotals[r.Bodega] = (bodegaTotals[r.Bodega] || 0) + (r.totalTmp || 0); });
       const bodegas = Object.entries(bodegaTotals).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
 
-      const vals = rows.map(r => r["Salidas $"]).filter(v => typeof v === "number" && !Number.isNaN(v)).sort((a,b)=>a-b);
-      const threshold = vals.length ? vals[Math.floor(0.9 * (vals.length - 1))] : null;
+      const valsSalidas = rows.map(r => r["Salidas $"]).filter(v => typeof v === "number" && !Number.isNaN(v)).sort((a,b)=>a-b);
+      const thresholdSalidas = valsSalidas.length ? valsSalidas[Math.floor(0.9 * (valsSalidas.length - 1))] : null;
+      const valsEntradas = rows.map(r => r["Entradas $"]).filter(v => typeof v === "number" && !Number.isNaN(v)).sort((a,b)=>a-b);
+      const thresholdEntradas = valsEntradas.length ? valsEntradas[Math.floor(0.9 * (valsEntradas.length - 1))] : null;
 
       bodegas.forEach(bodega => {
         const grupo = cloneRows(rows).filter(r => r.Bodega === bodega).sort((a,b)=>(b["Salidas $"] ?? -Infinity) - (a["Salidas $"] ?? -Infinity));
         grupo.forEach(r => {
-          const row = ws.addRow([r.Bodega, round2(r.Salidas), round2(r.Entradas), r.CODIGO, r.DESCRIPCION, r.Folio, r.Fecha_Texto, round2(r["Salidas $"]), round2(r["Entradas $"]), r.Observaciones]);
+          const salidaMonto = r["Salidas $"];
+          const entradaMonto = r["Entradas $"];
+          const revisarSalida = typeof salidaMonto === "number" && (thresholdSalidas !== null && salidaMonto >= thresholdSalidas);
+          const revisarEntrada = typeof entradaMonto === "number" && (thresholdEntradas !== null && entradaMonto >= thresholdEntradas);
+          const revisarFlag = (revisarSalida || revisarEntrada) ? "REVISAR" : "";
+          const row = ws.addRow([r.Bodega, round2(r.Salidas), round2(r.Entradas), r.CODIGO, r.DESCRIPCION, r.Folio, r.Fecha_Texto, round2(salidaMonto), round2(entradaMonto), r.Observaciones, revisarFlag]);
           row.eachCell({ includeEmpty: true }, cell => {
             cell.border = {top:{style:'thin'},left:{style:'thin'},bottom:{style:'thin'},right:{style:'thin'}};
           });
-          const v = r["Salidas $"];
-          if (typeof v === "number"){
+          if (revisarFlag) row.getCell(11).font = {bold:true};
+          if (typeof salidaMonto === "number"){
             const c = row.getCell(8);
-            if (v < 85) c.fill = {type:"pattern", pattern:"solid", fgColor:{argb:"99CCFF"}};
-            else if (threshold !== null && v >= threshold) c.fill = {type:"pattern", pattern:"solid", fgColor:{argb:"FF9999"}};
+            if (salidaMonto > 0 && salidaMonto < 85) c.fill = {type:"pattern", pattern:"solid", fgColor:{argb:"99CCFF"}};
+            else if (thresholdSalidas !== null && salidaMonto >= thresholdSalidas) c.fill = {type:"pattern", pattern:"solid", fgColor:{argb:"FF9999"}};
+          }
+          if (typeof entradaMonto === "number"){
+            const c = row.getCell(9);
+            if (entradaMonto > 0 && entradaMonto < 85) c.fill = {type:"pattern", pattern:"solid", fgColor:{argb:"99CCFF"}};
+            else if (thresholdEntradas !== null && entradaMonto >= thresholdEntradas) c.fill = {type:"pattern", pattern:"solid", fgColor:{argb:"FF9999"}};
           }
         });
 
@@ -534,9 +546,9 @@
         const totEntM = grupo.reduce((s,r)=>s+(r["Entradas $"]||0),0);
         const bono = totSalM - grupo.filter(r => (r["Salidas $"]||0) < 85).reduce((s,r)=>s+(r["Salidas $"]||0),0);
 
-        let row = ws.addRow([`Total ${bodega}`, round2(totSal), round2(totEnt), "", "", "", "TOTAL", round2(totSalM), round2(totEntM), ""]);
+        let row = ws.addRow([`Total ${bodega}`, round2(totSal), round2(totEnt), "", "", "", "TOTAL", round2(totSalM), round2(totEntM), "", ""]);
         row.font = {bold:true};
-        row = ws.addRow(["","","","","","","TOTAL BONO", round2(bono), "", ""]);
+        row = ws.addRow(["","","","","","","TOTAL BONO", round2(bono), "", "", ""]);
         row.font = {bold:true};
         ws.addRow([]);
         ws.addRow([]);
@@ -548,12 +560,12 @@
       const gentM = rows.reduce((s,r)=>s+(r["Entradas $"]||0),0);
       const bonoTotal = gsalM - rows.filter(r => (r["Salidas $"]||0) < 85).reduce((s,r)=>s+(r["Salidas $"]||0),0);
 
-      let row = ws.addRow(["TOTAL GENERAL", round2(gsal), round2(gent), "", "", "", "TOTAL", round2(gsalM), round2(gentM), ""]);
+      let row = ws.addRow(["TOTAL GENERAL", round2(gsal), round2(gent), "", "", "", "TOTAL", round2(gsalM), round2(gentM), "", ""]);
       row.font = {bold:true};
-      row = ws.addRow(["","","","","","","TOTAL BONO", round2(bonoTotal), "", ""]);
+      row = ws.addRow(["","","","","","","TOTAL BONO", round2(bonoTotal), "", "", ""]);
       row.font = {bold:true};
 
-      setColumnWidths(ws,[14,10,10,18,34,16,12,14,14,42]);
+      setColumnWidths(ws,[14,10,10,18,34,16,12,14,14,42,12]);
       applyFirstRowAutoFilter(ws);
     }
 
