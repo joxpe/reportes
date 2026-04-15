@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Generador de Reportes Kardex LIMSA v2026-04-13.2</title>
+  <title>Generador de Reportes Kardex LIMSA v2026-04-15.1</title>
   <style>
     :root{
       --bg:#f6f8fb; --card:#ffffff; --text:#1f2937; --muted:#6b7280;
@@ -42,7 +42,7 @@
 <body>
   <div class="wrap">
     <div class="hero">
-      <h1>Generador de Reportes Kardex LIMSA <span style="font-size:16px;font-weight:700;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:999px;vertical-align:middle;">v2026-04-13.2</span></h1>
+      <h1>Generador de Reportes Kardex LIMSA <span style="font-size:16px;font-weight:700;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:999px;vertical-align:middle;">v2026-04-15.1</span></h1>
       <p>Sube tu archivo Excel y genera los reportes configurados. <span style="opacity:.95;">Versión visible para control de cambios.</span></p>
     </div>
 
@@ -181,7 +181,7 @@
     let sourceName = "";
     let sourceMonthLabel = "";
     let sourceMode = "";
-    const APP_VERSION = "v2026-04-13.2";
+    const APP_VERSION = "v2026-04-15.1";
 
 
     const drop = document.getElementById("drop");
@@ -452,6 +452,14 @@
     function cloneRows(rows){ return rows.map(r => ({...r})); }
     function round2(v){ if (v === null || v === undefined || v === "") return null; return Math.round(Number(v)*100)/100; }
     function setColumnWidths(ws, widths){ widths.forEach((w,i)=>ws.getColumn(i+1).width = w); }
+    function applyFirstRowAutoFilter(ws){
+      const totalCols = Math.max(1, ws.columnCount || 1);
+      const totalRows = Math.max(1, ws.rowCount || 1);
+      ws.autoFilter = {
+        from: { row: 1, column: 1 },
+        to: { row: totalRows, column: totalCols }
+      };
+    }
     function sanitizeSheetName(name){
       return String(name || "Hoja").replace(/[\\\/?*\[\]:]/g, "_").slice(0,31) || "Hoja";
     }
@@ -493,6 +501,7 @@
         ws.getRow(ws.rowCount).font = {bold:true};
         ws.getRow(ws.rowCount-1).font = {bold:true};
         setColumnWidths(ws,[14,10,10,18,34,16,12,14,14,42]);
+        applyFirstRowAutoFilter(ws);
         return;
       }
 
@@ -545,6 +554,7 @@
       row.font = {bold:true};
 
       setColumnWidths(ws,[14,10,10,18,34,16,12,14,14,42]);
+      applyFirstRowAutoFilter(ws);
     }
 
     function addSummaryBlock(ws, title, rows){
@@ -1091,6 +1101,7 @@
       });
 
       setColumnWidths(ws,[18,38,12,4,18,38,12,4,18,38,12,4,18,38,12,4,18,38,12,4,18,38,12]);
+      applyFirstRowAutoFilter(ws);
     }
 
     function addPreparedKardexSheet(wb, rows){
@@ -1136,6 +1147,7 @@
         ws.getColumn(col).numFmt = '#,##0.00';
       });
       setColumnWidths(ws,[18,10,16,34,16,14,12,12,18,26,8,8,12,12,16,12,12,14,14,14,42,18,22,16,16,10,12]);
+      applyFirstRowAutoFilter(ws);
     }
 
     async function saveWorkbook(wb, filename){
@@ -1179,6 +1191,7 @@
         addSummaryBlock(ws, "RESUMEN POR BODEGA - TIPOS 27 Y 28", rows2728);
         addSummaryBlock(ws, "RESUMEN POR BODEGA - TIPO 50", rows50);
         setColumnWidths(ws,[16,16,16,12,12,14,14]);
+        applyFirstRowAutoFilter(ws);
         await saveWorkbook(wb, `Reporte_${sourceMonthLabel}_Tipo_27_28_50_Formato_Estandar.xlsx`);
         setStatus("Reporte generado correctamente.", "ok");
       } catch(err){ setStatus("No pude generar el reporte 27, 28 y 50: " + err.message, "err"); }
@@ -1195,6 +1208,7 @@
           const ws = wb.addWorksheet(`Resumen_${String(tipo).padStart(2,"0")}`);
           addSummaryBlock(ws, `RESUMEN POR BODEGA - TIPO ${String(tipo).padStart(2,"0")}`, rows);
           setColumnWidths(ws,[16,16,16,12,12,14,14]);
+          applyFirstRowAutoFilter(ws);
         });
         await saveWorkbook(wb, `Reporte_${sourceMonthLabel}_Tipos_04_al_60_Formato_Estandar.xlsx`);
         setStatus("Reporte generado correctamente.", "ok");
@@ -1219,6 +1233,7 @@
           const ws = wb.addWorksheet(sanitizeSheetName(`Res_${prov}`));
           addSummaryBlock(ws, `RESUMEN POR BODEGA - PROV ${prov.toUpperCase()} - TIPOS ${String(tipoDesde).padStart(2,"0")} A ${String(tipoHasta).padStart(2,"0")}`, rowsProv);
           setColumnWidths(ws,[16,16,16,12,12,14,14]);
+          applyFirstRowAutoFilter(ws);
         });
 
         const nombreProv = proveedores.map(p => p.toUpperCase()).join("_");
@@ -1270,6 +1285,7 @@
         addMetasBlock(ws, "METAS TIPO 45", sourceRows, 45, [45]);
         addMetasBlock(ws, "METAS TIPO 36", sourceRows, 36, [36]);
         setColumnWidths(ws,[16,16,16,12,12,14,14,14,12,12,14,4,12,12,14,14,14,14]);
+        applyFirstRowAutoFilter(ws);
         await saveWorkbook(wb, `Reporte_${sourceMonthLabel}_Metas.xlsx`);
         setStatus("Reporte de metas generado correctamente.", "ok");
       } catch(err){ setStatus("No pude generar el reporte de metas: " + err.message, "err"); }
@@ -1293,6 +1309,7 @@
           const ws = wb.addWorksheet(`Resumen_${String(tipo).padStart(2,"0")}`);
           addSummaryBlock(ws, `RESUMEN POR BODEGA - TIPO ${String(tipo).padStart(2,"0")}`, rowsTipo);
           setColumnWidths(ws,[16,16,16,12,12,14,14]);
+          applyFirstRowAutoFilter(ws);
         });
 
         const nombreArchivo = tipoDesde === tipoHasta
