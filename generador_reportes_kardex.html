@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Generador de Reportes Kardex LIMSA v2026-04-15.4</title>
+  <title>Generador de Reportes Kardex LIMSA v2026-04-15.5</title>
   <style>
     :root{
       --bg:#f6f8fb; --card:#ffffff; --text:#1f2937; --muted:#6b7280;
@@ -42,7 +42,7 @@
 <body>
   <div class="wrap">
     <div class="hero">
-      <h1>Generador de Reportes Kardex LIMSA <span style="font-size:16px;font-weight:700;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:999px;vertical-align:middle;">v2026-04-15.4</span></h1>
+      <h1>Generador de Reportes Kardex LIMSA <span style="font-size:16px;font-weight:700;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:999px;vertical-align:middle;">v2026-04-15.5</span></h1>
       <p>Sube tu archivo Excel y genera los reportes configurados. <span style="opacity:.95;">Versión visible para control de cambios.</span></p>
     </div>
 
@@ -163,7 +163,7 @@
         <ul class="list muted">
           <li>Las fechas se conservan como texto para respetar el formato original del archivo.</li>
           <li>El archivo de salida se guarda como <strong>.xlsx</strong>.</li>
-          <li>Si un tipo no tiene datos, aún se genera la hoja con totales en cero.</li>
+          <li>En reportes por rango, solo se generan hojas de tipos que sí tienen datos.</li>
         </ul>
       </div>
     </div>
@@ -181,7 +181,7 @@
     let sourceName = "";
     let sourceMonthLabel = "";
     let sourceMode = "";
-    const APP_VERSION = "v2026-04-15.4";
+    const APP_VERSION = "v2026-04-15.5";
 
 
     const drop = document.getElementById("drop");
@@ -1216,6 +1216,7 @@
         const wb = new ExcelJS.Workbook();
         tipos.forEach(tipo => {
           const rows = cloneRows(sourceRows).filter(r => r.Tipo_Num === tipo);
+          if (!rows.length) return;
           addDetailSheet(wb, `Tipo_${String(tipo).padStart(2,"0")}`, rows);
           const ws = wb.addWorksheet(`Resumen_${String(tipo).padStart(2,"0")}`);
           addSummaryBlock(ws, `RESUMEN POR BODEGA - TIPO ${String(tipo).padStart(2,"0")}`, rows);
@@ -1311,12 +1312,17 @@
         if (tipoDesde > tipoHasta) throw new Error("El tipo inicial no puede ser mayor que el tipo final.");
 
         setStatus(`Generando reporte de ${String(tipoDesde).padStart(2,"0")} a ${String(tipoHasta).padStart(2,"0")} con resumen por bodega...`);
-        const tipos = [];
-        for (let t = tipoDesde; t <= tipoHasta; t++) tipos.push(t);
+        const tiposConDatos = [...new Set(
+          sourceRows
+            .filter(r => Number.isFinite(r.Tipo_Num) && r.Tipo_Num >= tipoDesde && r.Tipo_Num <= tipoHasta)
+            .map(r => r.Tipo_Num)
+        )].sort((a,b) => a - b);
+        if (!tiposConDatos.length) throw new Error("No hay datos para ningún tipo dentro del rango solicitado.");
 
         const wb = new ExcelJS.Workbook();
-        tipos.forEach(tipo => {
+        tiposConDatos.forEach(tipo => {
           const rowsTipo = cloneRows(sourceRows).filter(r => r.Tipo_Num === tipo);
+          if (!rowsTipo.length) return;
           addDetailSheet(wb, `Tipo_${String(tipo).padStart(2,"0")}`, rowsTipo);
           const ws = wb.addWorksheet(`Resumen_${String(tipo).padStart(2,"0")}`);
           addSummaryBlock(ws, `RESUMEN POR BODEGA - TIPO ${String(tipo).padStart(2,"0")}`, rowsTipo);
