@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Generador de Reportes Kardex LIMSA v2026-04-15.5</title>
+  <title>Generador de Reportes Kardex LIMSA v2026-05-26.8</title>
   <style>
     :root{
       --bg:#f6f8fb; --card:#ffffff; --text:#1f2937; --muted:#6b7280;
@@ -35,6 +35,15 @@
     .list{margin:0;padding-left:18px;line-height:1.6}
     .pill{display:inline-block;padding:4px 10px;border-radius:999px;background:#e0f2fe;color:#075985;font-size:12px;font-weight:700;margin-right:6px;margin-bottom:6px}
     .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+
+    .tool-section{border:1px solid var(--border);background:#f8fbff;border-radius:16px;padding:12px;display:flex;flex-direction:column;gap:10px}
+    .tool-section.alt{background:#f5f8ff}
+    .tool-title{font-size:13px;font-weight:800;color:#1e3a8a;text-transform:uppercase;letter-spacing:.03em;margin:0}
+    .tool-subtitle{font-size:12px;color:#64748b;margin:-6px 0 2px;line-height:1.25}
+    .tool-inputs{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .tool-inputs input{padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;background:#fff}
+    .tool-inputs input[type=number]{width:90px}
+    .tool-inputs input[type=text]{flex:1;min-width:220px}
     .check{display:flex;gap:8px;align-items:center;font-size:14px;color:#334155;margin-top:10px}
     @media (max-width: 900px){.grid{grid-template-columns:1fr}}
   </style>
@@ -42,7 +51,7 @@
 <body>
   <div class="wrap">
     <div class="hero">
-      <h1>Generador de Reportes Kardex LIMSA <span style="font-size:16px;font-weight:700;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:999px;vertical-align:middle;">v2026-04-15.5</span></h1>
+      <h1>Generador de Reportes Kardex LIMSA <span style="font-size:16px;font-weight:700;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:999px;vertical-align:middle;">v2026-05-26.8</span></h1>
       <p>Sube tu archivo Excel y genera los reportes configurados. <span style="opacity:.95;">Versión visible para control de cambios.</span></p>
     </div>
 
@@ -88,46 +97,43 @@
               Generar reporte por rango, más resumen por bodega
               <small>Escribe un rango, por ejemplo 45 a 45 o 36 a 45. Genera una pestaña detalle y una de resumen por cada tipo dentro del rango.</small>
             </button>
-            <input id="inputTipoDesde" type="number" min="0" max="999" placeholder="36" disabled
+            <input id="inputTipoDesde" type="number" min="0" max="999" placeholder="36"
               style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
-            <input id="inputTipoHasta" type="number" min="0" max="999" placeholder="45" disabled
+            <input id="inputTipoHasta" type="number" min="0" max="999" placeholder="45"
               style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
           </div>
 
-          <div style="display:flex;flex-direction:column;gap:8px;">
+          <div class="tool-section">
+            <p class="tool-title">Reporte por rango y proveedor</p>
+            <p class="tool-subtitle">Usa estos campos solo para generar el Excel por proveedor.</p>
+            <div class="tool-inputs">
+              <input id="inputProvDesde" type="number" min="0" max="999" placeholder="30" />
+              <input id="inputProvHasta" type="number" min="0" max="999" placeholder="31" />
+              <input id="inputProveedores" type="text" placeholder="ala, ces, dal, gre" />
+            </div>
             <button id="btnRangoProveedor" class="btn" disabled style="margin:0;">
               Generar reporte por rango y proveedor
               <small>Filtra por un rango de tipos y hasta 5 proveedores. Cada proveedor genera su pestaña detalle y su pestaña de resumen.</small>
             </button>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-              <input id="inputProvDesde" type="number" min="0" max="999" placeholder="30" disabled
-                style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
-              <input id="inputProvHasta" type="number" min="0" max="999" placeholder="31" disabled
-                style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
-              <input id="inputProveedores" type="text" placeholder="ala, ces, dal, gre" disabled
-                style="flex:1;min-width:220px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
-            </div>
           </div>
 
-          <div style="display:flex;flex-direction:column;gap:8px;">
+          <div class="tool-section alt">
+            <p class="tool-title">Concentrado por proveedor</p>
+            <p class="tool-subtitle">Usa estos campos para concentrado Excel o PDF de impresión.</p>
+            <div class="tool-inputs">
+              <input id="inputConcDesde" type="number" min="0" max="999" placeholder="26" />
+              <input id="inputConcHasta" type="number" min="0" max="999" placeholder="31" />
+              <input id="inputConcProveedores" type="text" placeholder="por, dal, ces, gre" />
+            </div>
             <button id="btnProvConcentrado" class="btn" disabled style="margin:0;">
               Generar concentrado por proveedor y tipos
               <small>Una pestaña por proveedor. Cada tipo queda en su propio bloque con código, descripción y cantidad.</small>
             </button>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-              <input id="inputConcDesde" type="number" min="0" max="999" placeholder="26" disabled
-                style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
-              <input id="inputConcHasta" type="number" min="0" max="999" placeholder="31" disabled
-                style="width:90px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
-              <input id="inputConcProveedores" type="text" placeholder="por, dal, ces, gre" disabled
-                style="flex:1;min-width:220px;padding:14px 12px;border:1px solid var(--border);border-radius:14px;font-size:16px;" />
-            </div>
+            <button id="btnProvConcentradoPDF" class="btn" disabled style="margin:0;">
+              Generar PDF por proveedor para imprimir
+              <small>Crea un PDF por cada proveedor seleccionado, con bloques por tipo y espacio de firma al final.</small>
+            </button>
           </div>
-
-          <button id="btnProvConcentradoPDF" class="btn" disabled>
-            Generar PDF por proveedor para imprimir
-            <small>Crea un PDF por cada proveedor seleccionado, con bloques por tipo y espacio de firma al final.</small>
-          </button>
           <button id="btnMetas" class="btn" disabled>
             Generar reporte de metas
             <small>Crea una pestaña Metas con bloques para tipo 50, tipos 27 y 28, tipo 45 y tipo 36.</small>
@@ -181,7 +187,7 @@
     let sourceName = "";
     let sourceMonthLabel = "";
     let sourceMode = "";
-    const APP_VERSION = "v2026-04-15.5";
+    const APP_VERSION = "v2026-05-26.8";
 
 
     const drop = document.getElementById("drop");
@@ -908,6 +914,21 @@
     }
 
 
+    function isDescripcionDescontinuada(descripcion){
+      return String(descripcion || '').trim().endsWith('*');
+    }
+
+    function sortConcentradoItems(items){
+      return [...items].sort((a,b) => (b.cantidad||0) - (a.cantidad||0) || a.codigo.localeCompare(b.codigo));
+    }
+
+    function splitConcentradoItemsPorEstatus(items){
+      return {
+        normales: sortConcentradoItems(items.filter(item => !item.descontinuado)),
+        descontinuados: sortConcentradoItems(items.filter(item => item.descontinuado))
+      };
+    }
+
     function buildProviderConcentradoBlocks(prov, tipoDesde, tipoHasta, rows){
       const provNorm = String(prov || '').trim().toLowerCase();
       const allRows = cloneRows(rows).filter(r => (
@@ -928,16 +949,23 @@
         rowsTipo.forEach(r => {
           const key = String(r.CODIGO || '').trim();
           if (!key) return;
+          const descripcion = String(r.DESCRIPCION || '').trim();
+          const esDescontinuado = isDescripcionDescontinuada(descripcion);
           if (!mapTipo.has(key)) mapTipo.set(key, {
             codigo:key,
-            descripcion:String(r.DESCRIPCION || '').trim(),
-            cantidad:0
+            descripcion,
+            cantidad:0,
+            descontinuado: esDescontinuado
           });
           const cur = mapTipo.get(key);
           cur.cantidad += qtyOf(r);
-          if (!cur.descripcion && r.DESCRIPCION) cur.descripcion = String(r.DESCRIPCION).trim();
+          if (!cur.descripcion && descripcion) cur.descripcion = descripcion;
+          if (esDescontinuado) {
+            cur.descontinuado = true;
+            cur.descripcion = descripcion || cur.descripcion;
+          }
         });
-        const itemsTipo = [...mapTipo.values()].sort((a,b) => (b.cantidad||0) - (a.cantidad||0) || a.codigo.localeCompare(b.codigo));
+        const itemsTipo = sortConcentradoItems([...mapTipo.values()]);
         blocks.push({ tipo, items: itemsTipo });
       }
       return { provNorm, blocks };
@@ -953,6 +981,11 @@
 
       proveedores.forEach((prov) => {
         const { provNorm, blocks } = buildProviderConcentradoBlocks(prov, tipoDesde, tipoHasta, rows);
+        // Evita generar bloques, columnas u hojas sin informacion de codigos.
+        // La separacion de descontinuados solo se dibuja cuando existen codigos normales y descontinuados.
+        const blocksWithCodes = blocks.filter(block => Array.isArray(block.items) && block.items.length > 0);
+        if (!blocksWithCodes.length) return;
+
         const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -982,20 +1015,32 @@
           colHeights = [startY, startY];
         };
 
-        const estimateBlockHeight = (itemCount) => {
-          const rowsCount = Math.max(1, itemCount + 1);
+        const getPDFRowsForBlock = (block) => {
+          const { normales, descontinuados } = splitConcentradoItemsPorEstatus(block.items);
+          const totalTipo = block.items.reduce((acc, item) => acc + (Number(item.cantidad) || 0), 0);
+          const body = [];
+          let separatorIndex = -1;
+
+          normales.forEach(item => body.push([item.codigo, round2(item.cantidad)]));
+          if (normales.length && descontinuados.length) {
+            separatorIndex = body.length;
+            body.push(['', '']);
+          }
+          descontinuados.forEach(item => body.push([item.codigo, round2(item.cantidad)]));
+          body.push(['TOTAL', round2(totalTipo)]);
+
+          return { body, separatorIndex, totalIndex: body.length - 1 };
+        };
+
+        const estimateBlockHeight = (block) => {
+          const { body } = getPDFRowsForBlock(block);
+          const rowsCount = Math.max(1, body.length);
           return 14 + 8 + (rowsCount * 6.2) + 6;
         };
 
         const placeBlock = (block, colIndex) => {
           const x = margin + (colIndex * (colWidth + gap));
-          const totalTipo = block.items.reduce((acc, item) => acc + (Number(item.cantidad) || 0), 0);
-          const body = block.items.length
-            ? [
-                ...block.items.map(item => [item.codigo, round2(item.cantidad)]),
-                ['TOTAL', round2(totalTipo)]
-              ]
-            : [['SIN DATOS', '']];
+          const { body, separatorIndex, totalIndex } = getPDFRowsForBlock(block);
 
           const blockStartY = rowY;
           doc.setFont('helvetica', 'bold');
@@ -1016,8 +1061,15 @@
               1: { cellWidth: 24, halign: 'center' }
             },
             didParseCell: function(data) {
-              if (block.items.length && data.section === 'body' && data.row.index === body.length - 1) {
+              if (data.section !== 'body') return;
+              if (data.row.index === totalIndex) {
                 data.cell.styles.fontStyle = 'bold';
+              }
+              if (data.row.index === separatorIndex) {
+                data.cell.text = [''];
+                data.cell.styles.lineWidth = 0;
+                data.cell.styles.minCellHeight = 4;
+                data.cell.styles.fillColor = [255, 255, 255];
               }
             }
           });
@@ -1026,14 +1078,16 @@
 
         drawHeader();
 
-        for (let i = 0; i < blocks.length; i += 2) {
-          const leftBlock = blocks[i];
-          const rightBlock = blocks[i + 1] || null;
-          const leftNeed = estimateBlockHeight(leftBlock.items.length);
-          const rightNeed = rightBlock ? estimateBlockHeight(rightBlock.items.length) : 0;
+        for (let i = 0; i < blocksWithCodes.length; i += 2) {
+          const leftBlock = blocksWithCodes[i];
+          const rightBlock = blocksWithCodes[i + 1] || null;
+          const leftNeed = estimateBlockHeight(leftBlock);
+          const rightNeed = rightBlock ? estimateBlockHeight(rightBlock) : 0;
           const rowNeed = Math.max(leftNeed, rightNeed);
 
-          if (rowY + rowNeed > pageHeight - reservedFooter) {
+          // Si el primer bloque de una pagina es muy alto, dejamos que autoTable lo parta.
+          // Antes se agregaba una pagina antes de imprimirlo, generando una hoja solo con encabezado.
+          if (rowY > startY && rowY + rowNeed > pageHeight - reservedFooter) {
             doc.addPage();
             pageNo += 1;
             drawHeader();
@@ -1044,20 +1098,18 @@
           rowY = Math.max(colHeights[0], colHeights[1]) + 4;
         }
 
-        if (rowY + 18 > pageHeight - 12) {
-          doc.addPage();
-          pageNo += 1;
-          drawHeader();
-          rowY = startY;
-        }
-
+        // No agregamos una pagina solo para firma, porque eso genera hojas sin codigos.
+        // Si queda espacio suficiente en la ultima pagina con informacion, se imprime la firma.
+        // Si no queda espacio, se omite para conservar el PDF limpio y sin paginas vacias.
         const firmaY = Math.max(rowY + 8, pageHeight - 24);
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.text('Firma de autorización', margin, firmaY);
-        doc.line(margin, firmaY + 6, 90, firmaY + 6);
-        doc.text('Nombre y firma', margin, firmaY + 11);
-        doc.text(`Proveedor: ${provNorm.toUpperCase()}`, pageWidth - margin, firmaY + 11, { align: 'right' });
+        if (firmaY + 11 <= pageHeight - 8) {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(10);
+          doc.text('Firma de autorización', margin, firmaY);
+          doc.line(margin, firmaY + 6, 90, firmaY + 6);
+          doc.text('Nombre y firma', margin, firmaY + 11);
+          doc.text(`Proveedor: ${provNorm.toUpperCase()}`, pageWidth - margin, firmaY + 11, { align: 'right' });
+        }
 
         const filename = `Concentrado_${sourceMonthLabel}_Tipos_${String(tipoDesde).padStart(2,'0')}_a_${String(tipoHasta).padStart(2,'0')}_Prov_${sanitizeFilenamePart(provNorm.toUpperCase())}.pdf`;
         doc.save(filename);
