@@ -125,9 +125,17 @@
               <input id="inputConcHasta" type="number" min="0" max="999" placeholder="31" />
               <input id="inputConcProveedores" type="text" placeholder="por, dal, ces, gre" />
             </div>
+            <label class="check" style="margin-top:0;">
+              <input id="separarConcPorMes" type="checkbox" />
+              <span>Separar el concentrado por mes</span>
+            </label>
+            <label class="check" style="margin-top:0;">
+              <input id="concEntradas" type="checkbox" />
+              <span>Calcular entradas en lugar de salidas</span>
+            </label>
             <button id="btnProvConcentrado" class="btn" disabled style="margin:0;">
               Generar concentrado por proveedor y tipos
-              <small>Una pestaña por proveedor. Cada tipo queda en su propio bloque con código, descripción y cantidad.</small>
+              <small>Una pestaña por proveedor. Considera salidas, o entradas si activas la casilla; cada tipo queda en su propio bloque con código, descripción y cantidad.</small>
             </button>
             <button id="btnProvConcentradoPDF" class="btn" disabled style="margin:0;">
               Generar PDF por proveedor para imprimir
@@ -211,6 +219,8 @@
     const inputConcDesde = document.getElementById("inputConcDesde");
     const inputConcHasta = document.getElementById("inputConcHasta");
     const inputConcProveedores = document.getElementById("inputConcProveedores");
+    const separarConcPorMes = document.getElementById("separarConcPorMes");
+    const concEntradas = document.getElementById("concEntradas");
     const lowerBodega = document.getElementById("lowerBodega");
 
     function setStatus(msg, kind=""){
@@ -247,6 +257,61 @@
       if (n.includes("noviembre")) return "Nov";
       if (n.includes("diciembre")) return "Dic";
       return "Reporte";
+    }
+
+    function getMonthKey(value){
+      if (value instanceof Date && !Number.isNaN(value.getTime())) {
+        return `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2,"0")}`;
+      }
+
+      // Excel puede entregar la fecha como número serial cuando el archivo la conserva así.
+      if (typeof value === "number" && Number.isFinite(value) && value > 20000 && value < 80000){
+        const date = XLSX.SSF.parse_date_code(value);
+        if (date?.y && date?.m) return `${date.y}-${String(date.m).padStart(2,"0")}`;
+      }
+
+      const text = String(value ?? "").trim();
+      if (!text) return "9999-99";
+
+      // Fecha ISO: yyyy-mm-dd o yyyy/mm/dd.
+      let match = text.match(/^(\d{4})[\/-](\d{1,2})/);
+      if (match){
+        const month = Number(match[2]);
+        if (month >= 1 && month <= 12) return `${match[1]}-${String(month).padStart(2,"0")}`;
+      }
+
+      // SIGA exporta dd/mm/aa. Se interpreta explícitamente como día/mes/año
+      // para que 01/02/25 no dependa del idioma del navegador ni se mezcle con 2026.
+      match = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{2,4})/);
+      if (match){
+        const day = Number(match[1]);
+        const month = Number(match[2]);
+        const shortYear = Number(match[3]);
+        const year = match[3].length === 2 ? (shortYear <= 69 ? 2000 + shortYear : 1900 + shortYear) : shortYear;
+        const date = new Date(year, month - 1, day);
+        if (month >= 1 && month <= 12 && date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day) {
+          return `${year}-${String(month).padStart(2,"0")}`;
+        }
+      }
+
+      // Algunos archivos normalizados guardan el serial de Excel como texto.
+      const serial = Number(text);
+      if (Number.isFinite(serial) && serial > 20000 && serial < 80000){
+        const date = XLSX.SSF.parse_date_code(serial);
+        if (date?.y && date?.m) return `${date.y}-${String(date.m).padStart(2,"0")}`;
+      }
+
+      // Último recurso para textos inequívocos que el navegador puede interpretar.
+      const parsed = new Date(text);
+      if (!Number.isNaN(parsed.getTime())) return `${parsed.getFullYear()}-${String(parsed.getMonth()+1).padStart(2,"0")}`;
+      return "9999-99";
+    }
+
+    function monthLabelFromKey(key){
+      if (key === "9999-99") return "SIN MES";
+      const [year, month] = key.split("-");
+      const names = ["ENE","FEB","MAR","ABR","MAY","JUN","JUL","AGO","SEP","OCT","NOV","DIC"];
+      return `${names[Number(month)-1] || month} ${year}`;
     }
 
     function toNum(v){
@@ -390,6 +455,7 @@
           CODIGO: r.codigo ?? "",
           DESCRIPCION: r.descripcion ?? "",
           Folio: r.Folio ?? "",
+          Costo: toNum(r.Costo),
           Fecha_Texto: String(r.Fecha ?? ""),
           "Salidas $": toNum(r["Salidas $"]),
           "Entradas $": toNum(r["Entradas $"]),
@@ -919,7 +985,12 @@
     }
 
     function sortConcentradoItems(items){
-      return [...items].sort((a,b) => (b.cantidad||0) - (a.cantidad||0) || a.codigo.localeCompare(b.codigo));
+      return [...items].sort((a,b) =>
+        (b.cantidad||0) - (a.cantidad||0) ||
+        a.codigo.localeCompare(b.codigo) ||
+        String(a.folio || '').localeCompare(String(b.folio || '')) ||
+        (Number(a.costo) || 0) - (Number(b.costo) || 0)
+      );
     }
 
     function splitConcentradoItemsPorEstatus(items){
@@ -929,31 +1000,44 @@
       };
     }
 
-    function buildProviderConcentradoBlocks(prov, tipoDesde, tipoHasta, rows){
+    function concentradoMovimientoEtiqueta(useEntradas){ return useEntradas ? "ENTRADAS" : "SALIDAS"; }
+    function concentradoMovimientoCampo(useEntradas){ return useEntradas ? "Entradas" : "Salidas"; }
+
+    function buildProviderConcentradoBlocks(prov, tipoDesde, tipoHasta, rows, separateByMonth = false, useEntradas = false){
       const provNorm = String(prov || '').trim().toLowerCase();
+      const movimientoCampo = concentradoMovimientoCampo(useEntradas);
       const allRows = cloneRows(rows).filter(r => (
         Number.isFinite(r.Tipo_Num) && r.Tipo_Num >= tipoDesde && r.Tipo_Num <= tipoHasta &&
-        String(r.Prov || '').trim().toLowerCase() === provNorm
+        String(r.Prov || '').trim().toLowerCase() === provNorm &&
+        Number(r[movimientoCampo] || 0) !== 0
       ));
 
-      const qtyOf = (r) => {
-        const ent = Number(r.Entradas || 0);
-        const sal = Number(r.Salidas || 0);
-        return ent !== 0 ? ent : sal;
-      };
+      const qtyOf = r => Number(r[movimientoCampo] || 0);
 
       const blocks = [];
+      const monthGroups = separateByMonth
+        ? [...new Set(allRows.map(r => getMonthKey(r.Fecha_Texto)))].sort()
+        : [null];
+      monthGroups.forEach(monthKey => {
+      const monthRows = monthKey === null ? allRows : allRows.filter(r => getMonthKey(r.Fecha_Texto) === monthKey);
       for (let tipo = tipoDesde; tipo <= tipoHasta; tipo++) {
-        const rowsTipo = allRows.filter(r => r.Tipo_Num === tipo);
+        const rowsTipo = monthRows.filter(r => r.Tipo_Num === tipo);
         const mapTipo = new Map();
         rowsTipo.forEach(r => {
-          const key = String(r.CODIGO || '').trim();
-          if (!key) return;
+          const codigo = String(r.CODIGO || '').trim();
+          if (!codigo) return;
+          const folio = String(r.Folio || '').trim();
+          const costo = toNum(r.Costo);
+          // El mismo código puede aparecer en más de un movimiento o con distinto costo.
+          // Se conserva cada combinación para que el concentrado no pierda el folio ni el costo.
+          const key = `${codigo}|${folio}|${costo ?? ''}`;
           const descripcion = String(r.DESCRIPCION || '').trim();
           const esDescontinuado = isDescripcionDescontinuada(descripcion);
           if (!mapTipo.has(key)) mapTipo.set(key, {
-            codigo:key,
+            codigo,
             descripcion,
+            folio,
+            costo,
             cantidad:0,
             descontinuado: esDescontinuado
           });
@@ -966,8 +1050,9 @@
           }
         });
         const itemsTipo = sortConcentradoItems([...mapTipo.values()]);
-        blocks.push({ tipo, items: itemsTipo });
+        blocks.push({ tipo, items: itemsTipo, monthKey, monthLabel: monthKey === null ? "" : monthLabelFromKey(monthKey) });
       }
+      });
       return { provNorm, blocks };
     }
 
@@ -975,12 +1060,12 @@
       return String(v ?? '').replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'archivo';
     }
 
-    async function saveProviderConcentradoPDFs(tipoDesde, tipoHasta, proveedores, rows){
+    async function saveProviderConcentradoPDFs(tipoDesde, tipoHasta, proveedores, rows, separateByMonth = false, useEntradas = false){
       if (!window.jspdf || !window.jspdf.jsPDF) throw new Error("No se pudo cargar la librería PDF.");
       const { jsPDF } = window.jspdf;
 
       proveedores.forEach((prov) => {
-        const { provNorm, blocks } = buildProviderConcentradoBlocks(prov, tipoDesde, tipoHasta, rows);
+        const { provNorm, blocks } = buildProviderConcentradoBlocks(prov, tipoDesde, tipoHasta, rows, separateByMonth, useEntradas);
         // Evita generar bloques, columnas u hojas sin informacion de codigos.
         // La separacion de descontinuados solo se dibuja cuando existen codigos normales y descontinuados.
         const blocksWithCodes = blocks.filter(block => Array.isArray(block.items) && block.items.length > 0);
@@ -1005,7 +1090,7 @@
           doc.text(`CONCENTRADO POR PROVEEDOR ${provNorm.toUpperCase()}`, margin, 14);
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(9);
-          doc.text(`Tipos ${String(tipoDesde).padStart(2,'0')} a ${String(tipoHasta).padStart(2,'0')}`, margin, 20);
+          doc.text(`Tipos ${String(tipoDesde).padStart(2,'0')} a ${String(tipoHasta).padStart(2,'0')} | Solo ${concentradoMovimientoEtiqueta(useEntradas).toLowerCase()}${separateByMonth ? ' | Separado por mes' : ''}`, margin, 20);
           doc.text(`Mes: ${sourceMonthLabel}`, pageWidth - margin, 20, { align: 'right' });
           doc.text(`Página ${pageNo}`, pageWidth - margin, 14, { align: 'right' });
           doc.setDrawColor(180);
@@ -1021,13 +1106,13 @@
           const body = [];
           let separatorIndex = -1;
 
-          normales.forEach(item => body.push([item.codigo, round2(item.cantidad)]));
+          normales.forEach(item => body.push([item.codigo, item.folio || '', round2(item.costo), round2(item.cantidad)]));
           if (normales.length && descontinuados.length) {
             separatorIndex = body.length;
-            body.push(['', '']);
+            body.push(['', '', '', '']);
           }
-          descontinuados.forEach(item => body.push([item.codigo, round2(item.cantidad)]));
-          body.push(['TOTAL', round2(totalTipo)]);
+          descontinuados.forEach(item => body.push([item.codigo, item.folio || '', round2(item.costo), round2(item.cantidad)]));
+          body.push(['TOTAL', '', '', round2(totalTipo)]);
 
           return { body, separatorIndex, totalIndex: body.length - 1 };
         };
@@ -1045,20 +1130,22 @@
           const blockStartY = rowY;
           doc.setFont('helvetica', 'bold');
           doc.setFontSize(11);
-          doc.text(`TIPO ${String(block.tipo).padStart(2,'0')}`, x, blockStartY);
+          doc.text(`${block.monthLabel ? block.monthLabel + ' | ' : ''}TIPO ${String(block.tipo).padStart(2,'0')}`, x, blockStartY);
 
           doc.autoTable({
             startY: blockStartY + 2,
-            head: [['Código', 'Cantidad']],
+            head: [['Código', 'Folio', 'Costo $', 'Cantidad']],
             body,
             theme: 'grid',
             tableWidth: colWidth,
             margin: { left: x, right: pageWidth - x - colWidth },
-            styles: { font: 'helvetica', fontSize: 7.8, cellPadding: 1.5, valign: 'middle' },
+            styles: { font: 'helvetica', fontSize: 6.8, cellPadding: 1.2, valign: 'middle' },
             headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
             columnStyles: {
-              0: { cellWidth: colWidth - 24 },
-              1: { cellWidth: 24, halign: 'center' }
+              0: { cellWidth: colWidth - 63 },
+              1: { cellWidth: 19, halign: 'center' },
+              2: { cellWidth: 21, halign: 'right' },
+              3: { cellWidth: 23, halign: 'center' }
             },
             didParseCell: function(data) {
               if (data.section !== 'body') return;
@@ -1111,13 +1198,13 @@
           doc.text(`Proveedor: ${provNorm.toUpperCase()}`, pageWidth - margin, firmaY + 11, { align: 'right' });
         }
 
-        const filename = `Concentrado_${sourceMonthLabel}_Tipos_${String(tipoDesde).padStart(2,'0')}_a_${String(tipoHasta).padStart(2,'0')}_Prov_${sanitizeFilenamePart(provNorm.toUpperCase())}.pdf`;
+        const filename = `Concentrado_${sourceMonthLabel}_Tipos_${String(tipoDesde).padStart(2,'0')}_a_${String(tipoHasta).padStart(2,'0')}_Prov_${sanitizeFilenamePart(provNorm.toUpperCase())}${separateByMonth ? '_PorMes' : ''}${useEntradas ? '_Entradas' : ''}.pdf`;
         doc.save(filename);
       });
     }
 
-    function addProviderConcentradoSheet(wb, prov, tipoDesde, tipoHasta, rows){
-      const { provNorm, blocks } = buildProviderConcentradoBlocks(prov, tipoDesde, tipoHasta, rows);
+    function addProviderConcentradoSheet(wb, prov, tipoDesde, tipoHasta, rows, separateByMonth = false, useEntradas = false){
+      const { provNorm, blocks } = buildProviderConcentradoBlocks(prov, tipoDesde, tipoHasta, rows, separateByMonth, useEntradas);
       const title = sanitizeSheetName(provNorm || 'prov');
       const ws = wb.addWorksheet(title);
 
@@ -1128,9 +1215,52 @@
         });
       };
 
-      ws.addRow([`PROVEEDOR ${provNorm.toUpperCase()} | TIPOS ${String(tipoDesde).padStart(2,'0')} A ${String(tipoHasta).padStart(2,'0')}`]);
+      ws.addRow([`PROVEEDOR ${provNorm.toUpperCase()} | TIPOS ${String(tipoDesde).padStart(2,'0')} A ${String(tipoHasta).padStart(2,'0')} | SOLO ${concentradoMovimientoEtiqueta(useEntradas)}${separateByMonth ? ' | SEPARADO POR MES' : ''}`]);
       ws.getRow(1).font = {bold:true, size:14};
       ws.addRow([]);
+
+      if (separateByMonth){
+        let currentMonth = null;
+        let rowStart = 3;
+        blocks.forEach(block => {
+          if (block.monthKey !== currentMonth){
+            currentMonth = block.monthKey;
+            ws.getCell(rowStart, 1).value = block.monthLabel;
+            ws.getCell(rowStart, 1).font = {bold:true, size:12, color:{argb:'FF1E3A8A'}};
+            rowStart += 1;
+          }
+          const typeRow = ws.getRow(rowStart++);
+          typeRow.getCell(1).value = `TIPO ${String(block.tipo).padStart(2,'0')}`;
+          typeRow.getCell(1).font = {bold:true};
+          const h = ws.getRow(rowStart++);
+          ['codigo','descripcion','folio','costo $','cantidad'].forEach((value, index) => {
+            h.getCell(index + 1).value = value;
+            h.getCell(index + 1).font = {bold:true};
+          });
+          addBordersToCols(h, [1,2,3,4,5]);
+          if (block.items.length){
+            block.items.forEach(item => {
+              const row = ws.getRow(rowStart++);
+              row.getCell(1).value = item.codigo;
+              row.getCell(2).value = item.descripcion;
+              row.getCell(3).value = item.folio;
+              row.getCell(4).value = round2(item.costo);
+              row.getCell(5).value = round2(item.cantidad);
+              row.getCell(4).numFmt = '#,##0.00';
+              row.getCell(5).numFmt = '#,##0.00';
+              addBordersToCols(row, [1,2,3,4,5]);
+            });
+          } else {
+            const row = ws.getRow(rowStart++);
+            row.getCell(1).value = 'SIN DATOS';
+            addBordersToCols(row, [1]);
+          }
+          rowStart += 1;
+        });
+        setColumnWidths(ws,[18,38,16,14,12]);
+        applyFirstRowAutoFilter(ws);
+        return;
+      }
 
       let colStart = 1;
       blocks.forEach(block => {
@@ -1140,11 +1270,15 @@
         const h = ws.getRow(4);
         h.getCell(colStart).value = 'codigo';
         h.getCell(colStart+1).value = 'descripcion';
-        h.getCell(colStart+2).value = 'cantidad';
+        h.getCell(colStart+2).value = 'folio';
+        h.getCell(colStart+3).value = 'costo $';
+        h.getCell(colStart+4).value = 'cantidad';
         h.getCell(colStart).font = {bold:true};
         h.getCell(colStart+1).font = {bold:true};
         h.getCell(colStart+2).font = {bold:true};
-        addBordersToCols(h, [colStart, colStart+1, colStart+2]);
+        h.getCell(colStart+3).font = {bold:true};
+        h.getCell(colStart+4).font = {bold:true};
+        addBordersToCols(h, [colStart, colStart+1, colStart+2, colStart+3, colStart+4]);
 
         let rix = 5;
         if (block.items.length){
@@ -1152,8 +1286,12 @@
             const row = ws.getRow(rix++);
             row.getCell(colStart).value = item.codigo;
             row.getCell(colStart+1).value = item.descripcion;
-            row.getCell(colStart+2).value = round2(item.cantidad);
-            addBordersToCols(row, [colStart, colStart+1, colStart+2]);
+            row.getCell(colStart+2).value = item.folio;
+            row.getCell(colStart+3).value = round2(item.costo);
+            row.getCell(colStart+4).value = round2(item.cantidad);
+            row.getCell(colStart+3).numFmt = '#,##0.00';
+            row.getCell(colStart+4).numFmt = '#,##0.00';
+            addBordersToCols(row, [colStart, colStart+1, colStart+2, colStart+3, colStart+4]);
           });
         } else {
           const row = ws.getRow(rix++);
@@ -1161,10 +1299,141 @@
           addBordersToCols(row, [colStart]);
         }
 
-        colStart += 4;
+        colStart += 6;
       });
 
-      setColumnWidths(ws,[18,38,12,4,18,38,12,4,18,38,12,4,18,38,12,4,18,38,12,4,18,38,12]);
+      setColumnWidths(ws, blocks.flatMap(() => [18,38,16,14,12,4]));
+      applyFirstRowAutoFilter(ws);
+    }
+
+    function addMonthlyConcentradoSummarySheet(wb, proveedores, tipoDesde, tipoHasta, rows, useEntradas = false){
+      const ws = wb.addWorksheet("Resumen_Mensual");
+      const monthNames = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+      const movimientoCampo = concentradoMovimientoCampo(useEntradas);
+      ws.addRow([`RESUMEN MENSUAL | TIPOS ${String(tipoDesde).padStart(2,'0')} A ${String(tipoHasta).padStart(2,'0')} | SOLO ${concentradoMovimientoEtiqueta(useEntradas)}`]);
+      ws.getRow(1).font = {bold:true, size:14};
+      ws.addRow(["Proveedor", "Año", ...monthNames, "Total"]);
+      ws.getRow(2).font = {bold:true};
+
+      const filteredRows = rows.filter(r => Number.isFinite(r.Tipo_Num) && r.Tipo_Num >= tipoDesde && r.Tipo_Num <= tipoHasta && Number(r[movimientoCampo] || 0) !== 0);
+      const qtyOf = r => Number(r[movimientoCampo] || 0);
+
+      const groups = new Map();
+      const years = [...new Set(filteredRows
+        .map(r => getMonthKey(r.Fecha_Texto))
+        .filter(key => /^\d{4}-(0[1-9]|1[0-2])$/.test(key))
+        .map(key => key.slice(0, 4))
+      )].sort();
+
+      proveedores.forEach(prov => {
+        const provNorm = String(prov || '').trim().toLowerCase();
+        years.forEach(year => {
+          const key = `${provNorm}|${year}`;
+          groups.set(key, { prov: provNorm, year, totals: Array(12).fill(0) });
+        });
+        filteredRows
+          .filter(r => String(r.Prov || '').trim().toLowerCase() === provNorm)
+          .forEach(r => {
+            const monthKey = getMonthKey(r.Fecha_Texto);
+            const year = monthKey.split("-")[0];
+            const month = Number(monthKey.split("-")[1]) - 1;
+            if (month < 0 || month >= 12) return;
+            const key = `${provNorm}|${year}`;
+            if (!groups.has(key)) groups.set(key, { prov: provNorm, year, totals: Array(12).fill(0) });
+            groups.get(key).totals[month] += qtyOf(r);
+          });
+      });
+
+      const orderedGroups = [...groups.values()].sort((a,b) => a.prov.localeCompare(b.prov) || a.year.localeCompare(b.year));
+      orderedGroups.forEach(group => {
+        const totals = group.totals;
+        ws.addRow([group.prov.toUpperCase(), group.year, ...totals.map(round2), round2(totals.reduce((a,b) => a + b, 0))]);
+      });
+
+      const totalsByYear = new Map();
+      orderedGroups.forEach(group => {
+        if (!totalsByYear.has(group.year)) totalsByYear.set(group.year, Array(12).fill(0));
+        group.totals.forEach((value, index) => totalsByYear.get(group.year)[index] += value);
+      });
+      [...totalsByYear.keys()].sort().forEach(year => {
+        const totals = totalsByYear.get(year);
+        const row = ws.addRow(["TOTAL GENERAL", year, ...totals.map(round2), round2(totals.reduce((a,b) => a + b, 0))]);
+        row.font = {bold:true};
+      });
+
+      for (let col = 3; col <= 15; col++) ws.getColumn(col).numFmt = '#,##0.00';
+      setColumnWidths(ws, [18,10,12,12,12,12,12,12,12,12,12,12,12,12,12]);
+      applyFirstRowAutoFilter(ws);
+    }
+
+    function addMonthlyConcentradoCurrencySummarySheet(wb, proveedores, tipoDesde, tipoHasta, rows, useEntradas = false){
+      const ws = wb.addWorksheet("Resumen_Mensual_$");
+      const monthNames = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+      const movimientoCampo = concentradoMovimientoCampo(useEntradas);
+      const movimientoMontoCampo = useEntradas ? "Entradas $" : "Salidas $";
+      ws.addRow([`RESUMEN MENSUAL EN $ (CANTIDAD × COSTO) | TIPOS ${String(tipoDesde).padStart(2,'0')} A ${String(tipoHasta).padStart(2,'0')} | SOLO ${concentradoMovimientoEtiqueta(useEntradas)}`]);
+      ws.getRow(1).font = {bold:true, size:14};
+      ws.addRow(["Proveedor", "Año", ...monthNames, "Total $"]);
+      ws.getRow(2).font = {bold:true};
+
+      const filteredRows = rows.filter(r => Number.isFinite(r.Tipo_Num) && r.Tipo_Num >= tipoDesde && r.Tipo_Num <= tipoHasta && Number(r[movimientoCampo] || 0) !== 0);
+      const amountOf = r => {
+        const cantidad = Number(r[movimientoCampo] || 0);
+        const costo = toNum(r.Costo);
+        // La fuente principal es exactamente la columna "Costo" del Kardex SIGA.
+        if (costo !== null) return cantidad * costo;
+
+        // Solo se usa el importe existente cuando el archivo normalizado no trae Costo.
+        const movimientoMonto = Number(r[movimientoMontoCampo] || 0);
+        if (movimientoMonto !== 0) return movimientoMonto;
+        return 0;
+      };
+
+      const groups = new Map();
+      const years = [...new Set(filteredRows
+        .map(r => getMonthKey(r.Fecha_Texto))
+        .filter(key => /^\d{4}-(0[1-9]|1[0-2])$/.test(key))
+        .map(key => key.slice(0, 4))
+      )].sort();
+
+      proveedores.forEach(prov => {
+        const provNorm = String(prov || '').trim().toLowerCase();
+        years.forEach(year => {
+          const key = `${provNorm}|${year}`;
+          groups.set(key, { prov: provNorm, year, totals: Array(12).fill(0) });
+        });
+        filteredRows
+          .filter(r => String(r.Prov || '').trim().toLowerCase() === provNorm)
+          .forEach(r => {
+            const monthKey = getMonthKey(r.Fecha_Texto);
+            const year = monthKey.split("-")[0];
+            const month = Number(monthKey.split("-")[1]) - 1;
+            if (month < 0 || month >= 12) return;
+            const key = `${provNorm}|${year}`;
+            if (!groups.has(key)) groups.set(key, { prov: provNorm, year, totals: Array(12).fill(0) });
+            groups.get(key).totals[month] += amountOf(r);
+          });
+      });
+
+      const orderedGroups = [...groups.values()].sort((a,b) => a.prov.localeCompare(b.prov) || a.year.localeCompare(b.year));
+      orderedGroups.forEach(group => {
+        const totals = group.totals;
+        ws.addRow([group.prov.toUpperCase(), group.year, ...totals.map(round2), round2(totals.reduce((a,b) => a + b, 0))]);
+      });
+
+      const totalsByYear = new Map();
+      orderedGroups.forEach(group => {
+        if (!totalsByYear.has(group.year)) totalsByYear.set(group.year, Array(12).fill(0));
+        group.totals.forEach((value, index) => totalsByYear.get(group.year)[index] += value);
+      });
+      [...totalsByYear.keys()].sort().forEach(year => {
+        const totals = totalsByYear.get(year);
+        const row = ws.addRow(["TOTAL GENERAL", year, ...totals.map(round2), round2(totals.reduce((a,b) => a + b, 0))]);
+        row.font = {bold:true};
+      });
+
+      for (let col = 3; col <= 15; col++) ws.getColumn(col).numFmt = '"$"#,##0.00';
+      setColumnWidths(ws, [18,10,14,14,14,14,14,14,14,14,14,14,14,14,15]);
       applyFirstRowAutoFilter(ws);
     }
 
@@ -1315,13 +1584,19 @@
         if (!Number.isFinite(tipoDesde) || !Number.isFinite(tipoHasta)) throw new Error("Escribe un rango válido de tipos.");
         if (tipoDesde > tipoHasta) throw new Error("El tipo inicial no puede ser mayor que el tipo final.");
         const proveedores = parseProviderList(inputConcProveedores.value);
+        const separateByMonth = separarConcPorMes.checked;
+        const useEntradas = concEntradas.checked;
         setStatus(`Generando concentrado de ${String(tipoDesde).padStart(2,"0")} a ${String(tipoHasta).padStart(2,"0")} por proveedor...`);
 
         const wb = new ExcelJS.Workbook();
-        proveedores.forEach(prov => addProviderConcentradoSheet(wb, prov, tipoDesde, tipoHasta, sourceRows));
+        proveedores.forEach(prov => addProviderConcentradoSheet(wb, prov, tipoDesde, tipoHasta, sourceRows, separateByMonth, useEntradas));
+        if (separateByMonth) {
+          addMonthlyConcentradoSummarySheet(wb, proveedores, tipoDesde, tipoHasta, sourceRows, useEntradas);
+          addMonthlyConcentradoCurrencySummarySheet(wb, proveedores, tipoDesde, tipoHasta, sourceRows, useEntradas);
+        }
 
         const nombreProv = proveedores.map(p => p.toUpperCase()).join("_");
-        const nombreArchivo = `Concentrado_${sourceMonthLabel}_Tipos_${String(tipoDesde).padStart(2,"0")}_a_${String(tipoHasta).padStart(2,"0")}_Prov_${nombreProv}.xlsx`;
+        const nombreArchivo = `Concentrado_${sourceMonthLabel}_Tipos_${String(tipoDesde).padStart(2,"0")}_a_${String(tipoHasta).padStart(2,"0")}_Prov_${nombreProv}${separateByMonth ? '_PorMes' : ''}${useEntradas ? '_Entradas' : ''}.xlsx`;
         await saveWorkbook(wb, nombreArchivo);
         setStatus(`Concentrado por proveedor generado correctamente.`, "ok");
       } catch(err){ setStatus("No pude generar el concentrado por proveedor: " + err.message, "err"); }
@@ -1334,8 +1609,10 @@
         if (!Number.isFinite(tipoDesde) || !Number.isFinite(tipoHasta)) throw new Error("Escribe un rango válido de tipos.");
         if (tipoDesde > tipoHasta) throw new Error("El tipo inicial no puede ser mayor que el tipo final.");
         const proveedores = parseProviderList(inputConcProveedores.value);
+        const separateByMonth = separarConcPorMes.checked;
+        const useEntradas = concEntradas.checked;
         setStatus(`Generando PDF de ${String(tipoDesde).padStart(2,"0")} a ${String(tipoHasta).padStart(2,"0")} por proveedor...`);
-        await saveProviderConcentradoPDFs(tipoDesde, tipoHasta, proveedores, sourceRows);
+        await saveProviderConcentradoPDFs(tipoDesde, tipoHasta, proveedores, sourceRows, separateByMonth, useEntradas);
         setStatus(`PDF por proveedor generado correctamente.`, "ok");
       } catch(err){ setStatus("No pude generar el PDF por proveedor: " + err.message, "err"); }
     });
