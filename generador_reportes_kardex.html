@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Generador de Reportes Kardex LIMSA v2026-09-23.9</title>
+  <title>Generador de Reportes Kardex LIMSA v2026-09-28.10</title>
   <style>
     :root{
       --bg:#f6f8fb; --card:#ffffff; --text:#1f2937; --muted:#6b7280;
@@ -51,7 +51,7 @@
 <body>
   <div class="wrap">
     <div class="hero">
-      <h1>Generador de Reportes Kardex LIMSA <span style="font-size:16px;font-weight:700;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:999px;vertical-align:middle;">v2026-05-26.8</span></h1>
+      <h1>Generador de Reportes Kardex LIMSA <span style="font-size:16px;font-weight:700;background:rgba(255,255,255,.18);padding:4px 10px;border-radius:999px;vertical-align:middle;">v2026-09-28.10</span></h1>
       <p>Sube tu archivo Excel y genera los reportes configurados. <span style="opacity:.95;">Versión visible para control de cambios.</span></p>
     </div>
 
@@ -195,7 +195,7 @@
     let sourceName = "";
     let sourceMonthLabel = "";
     let sourceMode = "";
-    const APP_VERSION = "v2026-05-26.8";
+    const APP_VERSION = "v2026-09-28.10";
 
 
     const drop = document.getElementById("drop");
@@ -1056,16 +1056,64 @@
       return { provNorm, blocks };
     }
 
+    function buildProviderConcentradoBlocksPDF(prov, tipoDesde, tipoHasta, rows, separateByMonth = false){
+      const provNorm = String(prov || '').trim().toLowerCase();
+      const allRows = cloneRows(rows).filter(r => (
+        Number.isFinite(r.Tipo_Num) && r.Tipo_Num >= tipoDesde && r.Tipo_Num <= tipoHasta &&
+        String(r.Prov || '').trim().toLowerCase() === provNorm
+      ));
+
+      const qtyOf = (r) => {
+        const ent = Number(r.Entradas || 0);
+        const sal = Number(r.Salidas || 0);
+        return ent !== 0 ? ent : sal;
+      };
+
+      const blocks = [];
+      const monthGroups = separateByMonth
+        ? [...new Set(allRows.map(r => getMonthKey(r.Fecha_Texto)))].sort()
+        : [null];
+      monthGroups.forEach(monthKey => {
+      const monthRows = monthKey === null ? allRows : allRows.filter(r => getMonthKey(r.Fecha_Texto) === monthKey);
+      for (let tipo = tipoDesde; tipo <= tipoHasta; tipo++) {
+        const rowsTipo = monthRows.filter(r => r.Tipo_Num === tipo);
+        const mapTipo = new Map();
+        rowsTipo.forEach(r => {
+          const key = String(r.CODIGO || '').trim();
+          if (!key) return;
+          const descripcion = String(r.DESCRIPCION || '').trim();
+          const esDescontinuado = isDescripcionDescontinuada(descripcion);
+          if (!mapTipo.has(key)) mapTipo.set(key, {
+            codigo:key,
+            descripcion,
+            cantidad:0,
+            descontinuado: esDescontinuado
+          });
+          const cur = mapTipo.get(key);
+          cur.cantidad += qtyOf(r);
+          if (!cur.descripcion && descripcion) cur.descripcion = descripcion;
+          if (esDescontinuado) {
+            cur.descontinuado = true;
+            cur.descripcion = descripcion || cur.descripcion;
+          }
+        });
+        const itemsTipo = sortConcentradoItems([...mapTipo.values()]);
+        blocks.push({ tipo, items: itemsTipo, monthKey, monthLabel: monthKey === null ? "" : monthLabelFromKey(monthKey) });
+      }
+      });
+      return { provNorm, blocks };
+    }
+
     function sanitizeFilenamePart(v){
       return String(v ?? '').replace(/[^a-zA-Z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') || 'archivo';
     }
 
-    async function saveProviderConcentradoPDFs(tipoDesde, tipoHasta, proveedores, rows, separateByMonth = false, useEntradas = false){
+    async function saveProviderConcentradoPDFs(tipoDesde, tipoHasta, proveedores, rows, separateByMonth = false){
       if (!window.jspdf || !window.jspdf.jsPDF) throw new Error("No se pudo cargar la librería PDF.");
       const { jsPDF } = window.jspdf;
 
       proveedores.forEach((prov) => {
-        const { provNorm, blocks } = buildProviderConcentradoBlocks(prov, tipoDesde, tipoHasta, rows, separateByMonth, useEntradas);
+        const { provNorm, blocks } = buildProviderConcentradoBlocksPDF(prov, tipoDesde, tipoHasta, rows, separateByMonth);
         // Evita generar bloques, columnas u hojas sin informacion de codigos.
         // La separacion de descontinuados solo se dibuja cuando existen codigos normales y descontinuados.
         const blocksWithCodes = blocks.filter(block => Array.isArray(block.items) && block.items.length > 0);
@@ -1090,7 +1138,7 @@
           doc.text(`CONCENTRADO POR PROVEEDOR ${provNorm.toUpperCase()}`, margin, 14);
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(9);
-          doc.text(`Tipos ${String(tipoDesde).padStart(2,'0')} a ${String(tipoHasta).padStart(2,'0')} | Solo ${concentradoMovimientoEtiqueta(useEntradas).toLowerCase()}${separateByMonth ? ' | Separado por mes' : ''}`, margin, 20);
+          doc.text(`Tipos ${String(tipoDesde).padStart(2,'0')} a ${String(tipoHasta).padStart(2,'0')}${separateByMonth ? ' | Separado por mes' : ''}`, margin, 20);
           doc.text(`Mes: ${sourceMonthLabel}`, pageWidth - margin, 20, { align: 'right' });
           doc.text(`Página ${pageNo}`, pageWidth - margin, 14, { align: 'right' });
           doc.setDrawColor(180);
@@ -1106,13 +1154,13 @@
           const body = [];
           let separatorIndex = -1;
 
-          normales.forEach(item => body.push([item.codigo, item.folio || '', round2(item.costo), round2(item.cantidad)]));
+          normales.forEach(item => body.push([item.codigo, round2(item.cantidad)]));
           if (normales.length && descontinuados.length) {
             separatorIndex = body.length;
-            body.push(['', '', '', '']);
+            body.push(['', '']);
           }
-          descontinuados.forEach(item => body.push([item.codigo, item.folio || '', round2(item.costo), round2(item.cantidad)]));
-          body.push(['TOTAL', '', '', round2(totalTipo)]);
+          descontinuados.forEach(item => body.push([item.codigo, round2(item.cantidad)]));
+          body.push(['TOTAL', round2(totalTipo)]);
 
           return { body, separatorIndex, totalIndex: body.length - 1 };
         };
@@ -1134,18 +1182,16 @@
 
           doc.autoTable({
             startY: blockStartY + 2,
-            head: [['Código', 'Folio', 'Costo $', 'Cantidad']],
+            head: [['Código', 'Cantidad']],
             body,
             theme: 'grid',
             tableWidth: colWidth,
             margin: { left: x, right: pageWidth - x - colWidth },
-            styles: { font: 'helvetica', fontSize: 6.8, cellPadding: 1.2, valign: 'middle' },
+            styles: { font: 'helvetica', fontSize: 7.8, cellPadding: 1.5, valign: 'middle' },
             headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold' },
             columnStyles: {
-              0: { cellWidth: colWidth - 63 },
-              1: { cellWidth: 19, halign: 'center' },
-              2: { cellWidth: 21, halign: 'right' },
-              3: { cellWidth: 23, halign: 'center' }
+              0: { cellWidth: colWidth - 24 },
+              1: { cellWidth: 24, halign: 'center' }
             },
             didParseCell: function(data) {
               if (data.section !== 'body') return;
@@ -1198,7 +1244,7 @@
           doc.text(`Proveedor: ${provNorm.toUpperCase()}`, pageWidth - margin, firmaY + 11, { align: 'right' });
         }
 
-        const filename = `Concentrado_${sourceMonthLabel}_Tipos_${String(tipoDesde).padStart(2,'0')}_a_${String(tipoHasta).padStart(2,'0')}_Prov_${sanitizeFilenamePart(provNorm.toUpperCase())}${separateByMonth ? '_PorMes' : ''}${useEntradas ? '_Entradas' : ''}.pdf`;
+        const filename = `Concentrado_${sourceMonthLabel}_Tipos_${String(tipoDesde).padStart(2,'0')}_a_${String(tipoHasta).padStart(2,'0')}_Prov_${sanitizeFilenamePart(provNorm.toUpperCase())}${separateByMonth ? '_PorMes' : ''}.pdf`;
         doc.save(filename);
       });
     }
